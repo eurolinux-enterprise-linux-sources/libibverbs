@@ -1,15 +1,17 @@
 Name: libibverbs
 Version: 1.1.8
-Release: 3%{?dist}
+Release: 4%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
-Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/verbs/libibverbs-%{version}-rhmodified.tar.gz
+Url: https://www.openfabrics.org/
+Source: https://www.openfabrics.org/downloads/verbs/libibverbs-%{version}-rhmodified.tar.gz
 Patch0: libibverbs-1.1.7-arg-fixes.patch
 Patch1: 0001-Add-ibv_port_cap_flags.patch
 Patch2: 0002-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
+Patch3: libibverbs-1.1.8-coverity-fixes.patch
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+Requires: rdma
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 BuildRequires: valgrind-devel libnl-devel
@@ -57,11 +59,13 @@ displays information about RDMA devices.
 
 %prep
 %setup -q
-# All of the first three patches are now included in the modified
-# tarball and do not need to be applied here.  There are left in
-# the src for reference purposes.
+#%patch0 -p1 -b .fixes
+#%patch1 -p1
+#%patch2 -p1
+%patch3 -p1 -b .coverity
 
 %build
+#autoreconf -i
 %configure --with-valgrind
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
@@ -102,6 +106,11 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
+* Tue Feb 24 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-4
+- Update RoCE IP addressing patches to latest version under review
+- Fix a coverity found issue
+- Resolves: bz1119105
+
 * Wed Jul 30 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-3
 - Fix the obsoletes tag so it exists on subpackages too
 - Related: bz1051211

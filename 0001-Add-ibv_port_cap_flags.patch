@@ -1,7 +1,37 @@
-From 5ed3dba4c74f3e2dd0b271b49b5c637aefe35306 Mon Sep 17 00:00:00 2001
+Return-Path: matanb@mellanox.com
+Received: from zmta04.collab.prod.int.phx2.redhat.com (LHLO
+ zmta04.collab.prod.int.phx2.redhat.com) (10.5.81.11) by
+ zmail13.collab.prod.int.phx2.redhat.com with LMTP; Thu, 18 Sep 2014
+ 10:53:39 -0400 (EDT)
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by zmta04.collab.prod.int.phx2.redhat.com (Postfix) with ESMTP id D7C68DA0E0
+	for <dledford@mail.corp.redhat.com>; Thu, 18 Sep 2014 10:53:39 -0400 (EDT)
+Received: from mx1.redhat.com (ext-mx16.extmail.prod.ext.phx2.redhat.com [10.5.110.21])
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s8IErcoo030543
+	for <dledford@redhat.com>; Thu, 18 Sep 2014 10:53:38 -0400
+Received: from mellanox.co.il (mailp.voltaire.com [193.47.165.129] (may be forged))
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s8IErZ2x021440
+	for <dledford@redhat.com>; Thu, 18 Sep 2014 10:53:36 -0400
+Received: from Internal Mail-Server by MTLPINE1 (envelope-from matanb@mellanox.com)
+	with ESMTPS (AES256-SHA encrypted); 18 Sep 2014 17:53:30 +0300
+Received: from r-vnc06.mtr.labs.mlnx (r-vnc06.mtr.labs.mlnx [10.208.0.117])
+	by labmailer.mlnx (8.13.8/8.13.8) with ESMTP id s8IErQnb023376;
+	Thu, 18 Sep 2014 17:53:29 +0300
 From: Matan Barak <matanb@mellanox.com>
-Date: Wed, 29 Jan 2014 11:55:15 +0200
-Subject: [PATCH libibverbs V5 1/2] Add ibv_port_cap_flags
+To: Roland Dreier <roland@kernel.org>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        linux-rdma@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+        Yishai Hadas <yishaih@mellanox.com>, dledford@redhat.com,
+        devesh.sharma@emulex.com
+Subject: [PATCH libibverbs V6 1/2] Add ibv_port_cap_flags
+Date: Thu, 18 Sep 2014 17:53:10 +0300
+Message-Id: <1411051991-17456-2-git-send-email-matanb@mellanox.com>
+In-Reply-To: <1411051991-17456-1-git-send-email-matanb@mellanox.com>
+References: <1411051991-17456-1-git-send-email-matanb@mellanox.com>
+X-RedHat-Spam-Score: -1.107  (BAYES_00,RDNS_NONE,SPF_HELO_PASS,UNPARSEABLE_RELAY)
+X-Scanned-By: MIMEDefang 2.68 on 10.5.11.24
+X-Scanned-By: MIMEDefang 2.68 on 10.5.110.21
 
 Add an enum that describes ibv_port_cap_flags that complies
 with the respective kernel enum.
@@ -9,7 +39,7 @@ with the respective kernel enum.
 This value could be fetched when using ibv_query_port in
 port_cap_flags.
 
-
+Change-Id: I499565f17d378f525796ee187ef0fac91fd48c21
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
