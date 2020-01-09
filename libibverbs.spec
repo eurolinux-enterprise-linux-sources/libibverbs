@@ -1,17 +1,20 @@
 Name: libibverbs
-Version: 1.1.7
-Release: 1%{?dist}
+Version: 1.1.8
+Release: 3%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
 Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
-BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+Source: http://www.openfabrics.org/downloads/verbs/libibverbs-%{version}-rhmodified.tar.gz
 Patch0: libibverbs-1.1.7-arg-fixes.patch
+Patch1: 0001-Add-ibv_port_cap_flags.patch
+Patch2: 0002-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
+BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
-BuildRequires: valgrind-devel
+BuildRequires: valgrind-devel libnl-devel
 ExcludeArch: s390 s390x
+Obsoletes: libibverbs-rocee < 1.1.8
 
 %description
 libibverbs is a library that allows userspace processes to use RDMA
@@ -27,6 +30,7 @@ also be installed.
 Summary: Development files for the libibverbs library
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
+Obsoletes: libibverbs-rocee-devel < 1.1.8
 
 %description devel
 Header files for the libibverbs library.
@@ -35,6 +39,7 @@ Header files for the libibverbs library.
 Summary: Static development files for the libibverbs library
 Group: System Environment/Libraries
 Requires: %{name}-devel = %{version}-%{release}
+Obsoletes: libibverbs-rocee-devel-static < 1.1.8
 
 %description devel-static
 Static libraries for the libibverbs library.
@@ -43,6 +48,7 @@ Static libraries for the libibverbs library.
 Summary: Examples for the libibverbs library
 Group: System Environment/Libraries
 Requires: %{name} = %{version}-%{release}
+Obsoletes: libibverbs-rocee-utils < 1.1.8
 Requires: libibverbs-driver.%{_arch}
 
 %description utils
@@ -51,7 +57,9 @@ displays information about RDMA devices.
 
 %prep
 %setup -q
-%patch0 -p1 -b .fixes
+# All of the first three patches are now included in the modified
+# tarball and do not need to be applied here.  There are left in
+# the src for reference purposes.
 
 %build
 %configure --with-valgrind
@@ -94,6 +102,29 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
+* Wed Jul 30 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-3
+- Fix the obsoletes tag so it exists on subpackages too
+- Related: bz1051211
+
+* Thu Jul 24 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-2
+- Add the RoCE IP Address GID support patches
+- Create our own tarball that is the three patches we needed
+  then autoreconf run with an acceptable version of autotools
+  as the version in the build system is too old
+- Resolves: bz1051211
+
+* Fri May 30 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-1
+- Update to latest upstream release (which adds XRC support,
+  infrastructure for verbs extensions, core support for usNIC
+  nodes and transports, uverbs extensions, and receive flow
+  steering extension)
+- The HPN channel in rhel6 is going away and the RoCE capability
+  is being folded back into the base OS channel package (aka
+  this one).  Provide an Obsoletes tag to cause this package
+  to replace the older libibverbs-rocee package from the HPN
+  channel
+- Resolves: bz854655
+
 * Wed Jul 31 2013 Doug Ledford <dledford@redhat.com> - 1.1.7-1
 - Update to latest upstream release
 - Remove patches that are now part of upstream

@@ -45,8 +45,10 @@
 /*
  * The minimum and maximum kernel ABI that we can handle.
  */
-#define IB_USER_VERBS_MIN_ABI_VERSION	1
+#define IB_USER_VERBS_MIN_ABI_VERSION	3
 #define IB_USER_VERBS_MAX_ABI_VERSION	6
+
+#define IB_USER_VERBS_CMD_THRESHOLD    50
 
 enum {
 	IB_USER_VERBS_CMD_GET_CONTEXT,
@@ -85,7 +87,26 @@ enum {
 	IB_USER_VERBS_CMD_MODIFY_SRQ,
 	IB_USER_VERBS_CMD_QUERY_SRQ,
 	IB_USER_VERBS_CMD_DESTROY_SRQ,
-	IB_USER_VERBS_CMD_POST_SRQ_RECV
+	IB_USER_VERBS_CMD_POST_SRQ_RECV,
+	IB_USER_VERBS_CMD_OPEN_XRCD,
+	IB_USER_VERBS_CMD_CLOSE_XRCD,
+	IB_USER_VERBS_CMD_CREATE_XSRQ,
+	IB_USER_VERBS_CMD_OPEN_QP
+};
+
+#define IB_USER_VERBS_CMD_COMMAND_MASK		0xff
+#define IB_USER_VERBS_CMD_FLAGS_MASK		0xff000000u
+#define IB_USER_VERBS_CMD_FLAGS_SHIFT		24
+
+
+#define IB_USER_VERBS_CMD_FLAG_EXTENDED		0x80ul
+
+
+enum {
+	IB_USER_VERBS_CMD_CREATE_FLOW = (IB_USER_VERBS_CMD_FLAG_EXTENDED <<
+					 IB_USER_VERBS_CMD_FLAGS_SHIFT) +
+					IB_USER_VERBS_CMD_THRESHOLD,
+	IB_USER_VERBS_CMD_DESTROY_FLOW
 };
 
 /*
@@ -98,6 +119,32 @@ enum {
  *    multiple of 8 bytes.  Otherwise the structure size will be
  *    different between 32-bit and 64-bit architectures.
  */
+
+struct hdr {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+};
+
+struct response_hdr {
+	__u64 response;
+};
+
+struct ex_hdr {
+	struct {
+		__u32 command;
+		__u16 in_words;
+		__u16 out_words;
+	};
+	struct {
+		__u64 response;
+	};
+	struct {
+		__u16 provider_in_words;
+		__u16 provider_out_words;
+		__u32 reserved;
+	};
+};
 
 struct ibv_kern_async_event {
 	__u64 element;
@@ -244,6 +291,27 @@ struct ibv_dealloc_pd {
 	__u16 in_words;
 	__u16 out_words;
 	__u32 pd_handle;
+};
+
+struct ibv_open_xrcd {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 fd;
+	__u32 oflags;
+	__u64 driver_data[0];
+};
+
+struct ibv_open_xrcd_resp {
+	__u32 xrcd_handle;
+};
+
+struct ibv_close_xrcd {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 xrcd_handle;
 };
 
 struct ibv_reg_mr {
@@ -452,6 +520,20 @@ struct ibv_create_qp {
 	__u64 driver_data[0];
 };
 
+struct ibv_open_qp {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u64 user_handle;
+	__u32 pd_handle;
+	__u32 qpn;
+	__u8  qp_type;
+	__u8  reserved[7];
+	__u64 driver_data[0];
+};
+
+/* also used for open response */
 struct ibv_create_qp_resp {
 	__u32 qp_handle;
 	__u32 qpn;
@@ -594,6 +676,81 @@ struct ibv_kern_send_wr {
 			__u32 reserved;
 		} ud;
 	} wr;
+	union {
+		struct {
+			__u32 remote_srqn;
+		} xrc;
+	} qp_type;
+};
+
+struct ibv_kern_eth_filter {
+	__u8  dst_mac[6];
+	__u8  src_mac[6];
+	__u16  ether_type;
+	__u16  vlan_tag;
+};
+
+struct ibv_kern_spec_eth {
+	__u32 type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_eth_filter val;
+	struct ibv_kern_eth_filter mask;
+};
+
+struct ibv_kern_ipv4_filter {
+	__u32 src_ip;
+	__u32 dst_ip;
+};
+
+struct ibv_kern_spec_ipv4 {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_ipv4_filter val;
+	struct ibv_kern_ipv4_filter mask;
+};
+
+struct ibv_kern_tcp_udp_filter {
+	__u16 dst_port;
+	__u16 src_port;
+};
+
+struct ibv_kern_spec_tcp_udp {
+	__u32  type;
+	__u16  size;
+	__u16 reserved;
+	struct ibv_kern_tcp_udp_filter val;
+	struct ibv_kern_tcp_udp_filter mask;
+};
+
+
+struct ibv_kern_spec {
+	union {
+		struct {
+			__u32 type;
+			__u16 size;
+			__u16 reserved;
+		} hdr;
+		struct ibv_kern_spec_eth eth;
+		struct ibv_kern_spec_ipv4 ipv4;
+		struct ibv_kern_spec_tcp_udp tcp_udp;
+	};
+
+};
+
+struct ibv_kern_flow_attr {
+	__u32 type;
+	__u16 size;
+	__u16 priority;
+	__u8 num_of_specs;
+	__u8 reserved[2];
+	__u8 port;
+	__u32 flags;
+	/* Following are the optional layers according to user request
+	 * struct ibv_kern_flow_spec_xxx
+	 * struct ibv_kern_flow_spec_yyy
+	 */
 };
 
 struct ibv_post_send {
@@ -683,6 +840,24 @@ struct ibv_attach_mcast {
 	__u64 driver_data[0];
 };
 
+struct ibv_create_flow  {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 qp_handle;
+	struct ibv_kern_flow_attr flow_attr;
+};
+
+struct ibv_create_flow_resp {
+	__u32 comp_mask;
+	__u32 flow_handle;
+};
+
+struct ibv_destroy_flow  {
+	struct ex_hdr hdr;
+	__u32 comp_mask;
+	__u32 flow_handle;
+};
+
 struct ibv_detach_mcast {
 	__u32 command;
 	__u16 in_words;
@@ -707,11 +882,28 @@ struct ibv_create_srq {
 	__u64 driver_data[0];
 };
 
+struct ibv_create_xsrq {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u64 user_handle;
+	__u32 srq_type;
+	__u32 pd_handle;
+	__u32 max_wr;
+	__u32 max_sge;
+	__u32 srq_limit;
+	__u32 reserved;
+	__u32 xrcd_handle;
+	__u32 cq_handle;
+	__u64 driver_data[0];
+};
+
 struct ibv_create_srq_resp {
 	__u32 srq_handle;
 	__u32 max_wr;
 	__u32 max_sge;
-	__u32 reserved;
+	__u32 srqn;
 };
 
 struct ibv_modify_srq {
@@ -804,47 +996,12 @@ enum {
 	 * trick opcodes in IBV_INIT_CMD() doesn't break.
 	 */
 	IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL_V2 = -1,
-};
-
-struct ibv_destroy_cq_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 cq_handle;
-};
-
-struct ibv_destroy_qp_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 qp_handle;
-};
-
-struct ibv_destroy_srq_v1 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u32 srq_handle;
-};
-
-struct ibv_get_context_v2 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u64 response;
-	__u64 cq_fd_tab;
-	__u64 driver_data[0];
-};
-
-struct ibv_create_cq_v2 {
-	__u32 command;
-	__u16 in_words;
-	__u16 out_words;
-	__u64 response;
-	__u64 user_handle;
-	__u32 cqe;
-	__u32 event_handler;
-	__u64 driver_data[0];
+	IB_USER_VERBS_CMD_OPEN_XRCD_V2 = -1,
+	IB_USER_VERBS_CMD_CLOSE_XRCD_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_XSRQ_V2 = -1,
+	IB_USER_VERBS_CMD_OPEN_QP_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_FLOW_V2 = -1,
+	IB_USER_VERBS_CMD_DESTROY_FLOW_V2 = -1
 };
 
 struct ibv_modify_srq_v3 {

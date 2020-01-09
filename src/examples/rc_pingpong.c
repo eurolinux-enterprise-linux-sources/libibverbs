@@ -65,6 +65,7 @@ struct pingpong_context {
 	struct ibv_qp		*qp;
 	void			*buf;
 	int			 size;
+	int			 send_flags;
 	int			 rx_depth;
 	int			 pending;
 	struct ibv_port_attr     portinfo;
@@ -319,8 +320,9 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	if (!ctx)
 		return NULL;
 
-	ctx->size     = size;
-	ctx->rx_depth = rx_depth;
+	ctx->size       = size;
+	ctx->send_flags = IBV_SEND_SIGNALED;
+	ctx->rx_depth   = rx_depth;
 
 	ctx->buf = memalign(page_size, size);
 	if (!ctx->buf) {
@@ -367,7 +369,8 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 	}
 
 	{
-		struct ibv_qp_init_attr attr = {
+		struct ibv_qp_attr attr;
+		struct ibv_qp_init_attr init_attr = {
 			.send_cq = ctx->cq,
 			.recv_cq = ctx->cq,
 			.cap     = {
@@ -379,10 +382,15 @@ static struct pingpong_context *pp_init_ctx(struct ibv_device *ib_dev, int size,
 			.qp_type = IBV_QPT_RC
 		};
 
-		ctx->qp = ibv_create_qp(ctx->pd, &attr);
+		ctx->qp = ibv_create_qp(ctx->pd, &init_attr);
 		if (!ctx->qp)  {
 			fprintf(stderr, "Couldn't create QP\n");
 			goto clean_cq;
+		}
+
+		ibv_query_qp(ctx->qp, &attr, IBV_QP_CAP, &init_attr);
+		if (init_attr.cap.max_inline_data >= size) {
+			ctx->send_flags |= IBV_SEND_INLINE;
 		}
 	}
 
@@ -508,7 +516,7 @@ static int pp_post_send(struct pingpong_context *ctx)
 		.sg_list    = &list,
 		.num_sge    = 1,
 		.opcode     = IBV_WR_SEND,
-		.send_flags = IBV_SEND_SIGNALED,
+		.send_flags = ctx->send_flags,
 	};
 	struct ibv_send_wr *bad_wr;
 
@@ -544,12 +552,12 @@ int main(int argc, char *argv[])
 	struct timeval           start, end;
 	char                    *ib_devname = NULL;
 	char                    *servername = NULL;
-	int                      port = 18515;
+	unsigned int             port = 18515;
 	int                      ib_port = 1;
-	int                      size = 4096;
+	unsigned int             size = 4096;
 	enum ibv_mtu		 mtu = IBV_MTU_1024;
-	int                      rx_depth = 500;
-	int                      iters = 1000;
+	unsigned int             rx_depth = 500;
+	unsigned int             iters = 1000;
 	int                      use_event = 0;
 	int                      routs;
 	int                      rcnt, scnt;
@@ -584,8 +592,8 @@ int main(int argc, char *argv[])
 
 		switch (c) {
 		case 'p':
-			port = strtol(optarg, NULL, 0);
-			if (port < 0 || port > 65535) {
+			port = strtoul(optarg, NULL, 0);
+			if (port > 65535) {
 				usage(argv[0]);
 				return 1;
 			}
@@ -597,14 +605,14 @@ int main(int argc, char *argv[])
 
 		case 'i':
 			ib_port = strtol(optarg, NULL, 0);
-			if (ib_port < 0) {
+			if (ib_port < 1) {
 				usage(argv[0]);
 				return 1;
 			}
 			break;
 
 		case 's':
-			size = strtol(optarg, NULL, 0);
+			size = strtoul(optarg, NULL, 0);
 			break;
 
 		case 'm':
@@ -616,11 +624,11 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'r':
-			rx_depth = strtol(optarg, NULL, 0);
+			rx_depth = strtoul(optarg, NULL, 0);
 			break;
 
 		case 'n':
-			iters = strtol(optarg, NULL, 0);
+			iters = strtoul(optarg, NULL, 0);
 			break;
 
 		case 'l':
