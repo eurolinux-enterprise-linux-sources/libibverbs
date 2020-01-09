@@ -1,0 +1,24 @@
+diff -up libibverbs-1.1.6/examples/ud_pingpong.c.mtu libibverbs-1.1.6/examples/ud_pingpong.c
+--- libibverbs-1.1.6/examples/ud_pingpong.c.mtu	2012-10-14 12:32:20.131571750 -0400
++++ libibverbs-1.1.6/examples/ud_pingpong.c	2012-10-14 12:31:53.036783553 -0400
+@@ -323,6 +323,20 @@ static struct pingpong_context *pp_init_
+ 			ibv_get_device_name(ib_dev));
+ 		return NULL;
+ 	}
++	{
++		struct ibv_port_attr port_info = { 0 };
++		int mtu;
++
++		if (ibv_query_port(ctx->context, port, &port_info)) {
++			fprintf(stderr, "Unable to query port info for port %d\n", port);
++			return NULL;
++		}
++		mtu = 1 << (port_info.active_mtu + 7);
++		if (size > mtu) {
++			fprintf(stderr, "Requested size larger than port MTU (%d)\n", mtu);
++			return NULL;
++		}
++	}
+ 
+ 	if (use_event) {
+ 		ctx->channel = ibv_create_comp_channel(ctx->context);

@@ -1,6 +1,6 @@
 Name: libibverbs
 Version: 1.1.6
-Release: 4%{?dist}
+Release: 5%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
@@ -8,6 +8,8 @@ Url: http://openfabrics.org/
 Source: http://openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
 Patch0: libibverbs-1.1.5-memcpy.patch
 Patch1: libibverbs-1.1.6-error.patch
+Patch2: libibverbs-1.1.6-state.patch
+Patch3: libibverbs-1.1.6-mtu.patch
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -54,6 +56,8 @@ displays information about RDMA devices.
 %setup -q
 %patch0 -p1 -b .memcpy
 %patch1 -p1 -b .error
+%patch2 -p1 -b .state
+%patch3 -p1 -b .mtu
 
 %build
 %configure --with-valgrind
@@ -96,6 +100,11 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
+* Sun Oct 14 2012 Doug Ledford <dledford@redhat.com> - 1.1.6-5
+- Don't print link state on iWARP links as it's always invalid
+- Don't try to do ud transfers in excess of port MTU
+- Resolves: bz822781
+
 * Thu Apr 05 2012 Doug Ledford <dledford@redhat.com> - 1.1.6-4
 - Make passing ib-port=0 an error as ib ports always start with 1
 - Related: bz755459

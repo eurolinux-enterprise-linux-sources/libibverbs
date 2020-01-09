@@ -1,0 +1,15 @@
+diff -up libibverbs-1.1.6/examples/devinfo.c.state libibverbs-1.1.6/examples/devinfo.c
+--- libibverbs-1.1.6/examples/devinfo.c.state	2012-10-14 12:09:26.581280151 -0400
++++ libibverbs-1.1.6/examples/devinfo.c	2012-10-14 12:12:06.181035962 -0400
+@@ -327,8 +327,9 @@ static int print_hca_cap(struct ibv_devi
+ 			       width_str(port_attr.active_width), port_attr.active_width);
+ 			printf("\t\t\tactive_speed:\t\t%s (%d)\n",
+ 			       speed_str(port_attr.active_speed), port_attr.active_speed);
+-			printf("\t\t\tphys_state:\t\t%s (%d)\n",
+-			       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);
++			if (ib_dev->transport_type == IBV_TRANSPORT_IB)
++				printf("\t\t\tphys_state:\t\t%s (%d)\n",
++				       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);
+ 
+ 			if (print_all_port_gids(ctx, port, port_attr.gid_tbl_len))
+ 				goto cleanup;
