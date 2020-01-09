@@ -218,8 +218,14 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 		goto cleanup;
 	}
 	if (ibv_query_device(ctx, &device_attr)) {
-		fprintf(stderr, "Failed to query device props");
+		fprintf(stderr, "Failed to query device props\n");
 		rc = 2;
+		goto cleanup;
+	}
+	if (ib_port && ib_port > device_attr.phys_port_cnt) {
+		fprintf(stderr, "Invalid port requested for device\n");
+		/* rc = 3 is taken by failure to clean up */
+		rc = 4;
 		goto cleanup;
 	}
 
@@ -321,8 +327,9 @@ static int print_hca_cap(struct ibv_device *ib_dev, uint8_t ib_port)
 			       width_str(port_attr.active_width), port_attr.active_width);
 			printf("\t\t\tactive_speed:\t\t%s (%d)\n",
 			       speed_str(port_attr.active_speed), port_attr.active_speed);
-			printf("\t\t\tphys_state:\t\t%s (%d)\n",
-			       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);
+			if (ib_dev->transport_type == IBV_TRANSPORT_IB)
+				printf("\t\t\tphys_state:\t\t%s (%d)\n",
+				       port_phy_state_str(port_attr.phys_state), port_attr.phys_state);
 
 			if (print_all_port_gids(ctx, port, port_attr.gid_tbl_len))
 				goto cleanup;
@@ -379,7 +386,7 @@ int main(int argc, char *argv[])
 
 		case 'i':
 			ib_port = strtol(optarg, NULL, 0);
-			if (ib_port < 0) {
+			if (ib_port <= 0) {
 				usage(argv[0]);
 				return 1;
 			}

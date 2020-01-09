@@ -1,7 +1,18 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define to 1 if you have the declaration of `O_CLOEXEC', and to 0 if you
+   don't. */
+#undef HAVE_DECL_O_CLOEXEC
+
+/* Define to 1 if you have the declaration of `SOCK_CLOEXEC', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SOCK_CLOEXEC
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#undef HAVE_FCNTL_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -30,6 +41,9 @@
 /* assembler has .symver support */
 #undef HAVE_SYMVER_SUPPORT
 
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
@@ -48,6 +62,9 @@
 
 /* Define to 1 to disable Valgrind annotations. */
 #undef NVALGRIND
+
+/* Defined to 0 if not provided */
+#undef O_CLOEXEC
 
 /* Name of package */
 #undef PACKAGE
@@ -70,8 +87,14 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* Defined to 0 if not provided */
+#undef SOCK_CLOEXEC
+
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* fopen() modifier for setting close on exec flag */
+#undef STREAM_CLOEXEC
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE

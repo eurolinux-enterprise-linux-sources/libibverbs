@@ -1,16 +1,13 @@
 Name: libibverbs
-Version: 1.1.6
-Release: 5%{?dist}
+Version: 1.1.7
+Release: 1%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
-Url: http://openfabrics.org/
-Source: http://openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
-Patch0: libibverbs-1.1.5-memcpy.patch
-Patch1: libibverbs-1.1.6-error.patch
-Patch2: libibverbs-1.1.6-state.patch
-Patch3: libibverbs-1.1.6-mtu.patch
+Url: http://www.openfabrics.org/
+Source: http://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+Patch0: libibverbs-1.1.7-arg-fixes.patch
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 BuildRequires: valgrind-devel
@@ -54,16 +51,13 @@ displays information about RDMA devices.
 
 %prep
 %setup -q
-%patch0 -p1 -b .memcpy
-%patch1 -p1 -b .error
-%patch2 -p1 -b .state
-%patch3 -p1 -b .mtu
+%patch0 -p1 -b .fixes
 
 %build
 %configure --with-valgrind
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
-make %{?_smp_mflags}
+make CFLAGS="$CFLAGS -fno-strict-aliasing" %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
@@ -100,6 +94,12 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
+* Wed Jul 31 2013 Doug Ledford <dledford@redhat.com> - 1.1.7-1
+- Update to latest upstream release
+- Remove patches that are now part of upstream
+- Fix ibv_srq_pingpong with negative value to -s option
+- Resolves: bz879191
+
 * Sun Oct 14 2012 Doug Ledford <dledford@redhat.com> - 1.1.6-5
 - Don't print link state on iWARP links as it's always invalid
 - Don't try to do ud transfers in excess of port MTU

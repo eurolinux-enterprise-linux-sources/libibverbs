@@ -44,6 +44,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <limits.h>
+#include <inttypes.h>
 
 #include "ibverbs.h"
 
@@ -108,7 +109,7 @@ static unsigned long get_page_size(void *base)
 	pid = getpid();
 	snprintf(buf, sizeof(buf), "/proc/%d/smaps", pid);
 
-	file = fopen(buf, "r");
+	file = fopen(buf, "r" STREAM_CLOEXEC);
 	if (!file)
 		goto out;
 
@@ -116,7 +117,7 @@ static unsigned long get_page_size(void *base)
 		int n;
 		uintptr_t range_start, range_end;
 
-		n = sscanf(buf, "%lx-%lx", &range_start, &range_end);
+		n = sscanf(buf, "%" SCNxPTR "-%" SCNxPTR, &range_start, &range_end);
 
 		if (n < 2)
 			continue;
@@ -268,6 +269,7 @@ static void __mm_rotate_left(struct ibv_mem_node *node)
 	node->parent = tmp;
 }
 
+#if 0
 static int verify(struct ibv_mem_node *node)
 {
 	int hl, hr;
@@ -293,6 +295,7 @@ static int verify(struct ibv_mem_node *node)
 
 	return hl + 1;
 }
+#endif
 
 static void __mm_add_rebalance(struct ibv_mem_node *node)
 {
