@@ -1,0 +1,50 @@
+From ed5fa92bfb82b9f3c66b8248825109dd91419156 Mon Sep 17 00:00:00 2001
+From: Jarod Wilson <jarod@redhat.com>
+Date: Tue, 19 Jul 2016 18:39:46 -0400
+Subject: [PATCH] Revert "Fail compiles if no platform specific memory barriers
+ exist"
+
+This reverts commit 20e2daec4578c1df10d8b599bf3b525a9b3fc6c3.
+
+commit 20e2daec4578c1df10d8b599bf3b525a9b3fc6c3
+Author: Steve Wise <swise@opengridcomputing.com>
+Date:   Tue Jun 7 07:42:47 2016 -0700
+
+    Fail compiles if no platform specific memory barriers exist
+
+    Currently there is a "generic" implementation for the memory barrier
+    macros in arch.h.  These turned out to be insuffient for ARM64 causing
+    memory corruption problems when doing RDMA operations.  So going forward,
+    fail a compile on a platform w/o platform-specific memory barrier macros.
+
+    Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+    Signed-off-by: Doug Ledford <dledford@redhat.com>
+
+Compiles where things worked just fine before (at least s390) now fail.
+
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ include/infiniband/arch.h | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/include/infiniband/arch.h b/include/infiniband/arch.h
+index e35ecf0..c31dd0a 100644
+--- a/include/infiniband/arch.h
++++ b/include/infiniband/arch.h
+@@ -132,7 +132,12 @@ static inline uint64_t ntohll(uint64_t x) { return x; }
+ 
+ #else
+ 
+-#error No architecture specific memory barrier defines found!
++#warning No architecture specific defines found.  Using generic implementation.
++
++#define mb()	 asm volatile("" ::: "memory")
++#define rmb()	 mb()
++#define wmb()	 mb()
++#define wc_wmb() wmb()
+ 
+ #endif
+ 
+-- 
+1.8.3.1
+

@@ -101,10 +101,20 @@ enum {
 
 #define IB_USER_VERBS_CMD_FLAG_EXTENDED		0x80ul
 
+/* use this mask for creating extended commands */
+#define IB_USER_VERBS_CMD_EXTENDED_MASK \
+	(IB_USER_VERBS_CMD_FLAG_EXTENDED << \
+	 IB_USER_VERBS_CMD_FLAGS_SHIFT)
+
 
 enum {
-	IB_USER_VERBS_CMD_CREATE_FLOW = (IB_USER_VERBS_CMD_FLAG_EXTENDED <<
-					 IB_USER_VERBS_CMD_FLAGS_SHIFT) +
+	IB_USER_VERBS_CMD_QUERY_DEVICE_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
+					    IB_USER_VERBS_CMD_QUERY_DEVICE,
+	IB_USER_VERBS_CMD_CREATE_QP_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
+					 IB_USER_VERBS_CMD_CREATE_QP,
+	IB_USER_VERBS_CMD_CREATE_CQ_EX = IB_USER_VERBS_CMD_EXTENDED_MASK |
+						IB_USER_VERBS_CMD_CREATE_CQ,
+	IB_USER_VERBS_CMD_CREATE_FLOW = IB_USER_VERBS_CMD_EXTENDED_MASK +
 					IB_USER_VERBS_CMD_THRESHOLD,
 	IB_USER_VERBS_CMD_DESTROY_FLOW
 };
@@ -240,6 +250,32 @@ struct ibv_query_device_resp {
 	__u8  reserved[4];
 };
 
+struct ibv_query_device_ex {
+	struct ex_hdr	hdr;
+	__u32		comp_mask;
+	__u32		reserved;
+};
+
+struct ibv_odp_caps_resp {
+	__u64 general_caps;
+	struct {
+		__u32 rc_odp_caps;
+		__u32 uc_odp_caps;
+		__u32 ud_odp_caps;
+	} per_transport_caps;
+	__u32 reserved;
+};
+
+struct ibv_query_device_resp_ex {
+	struct ibv_query_device_resp base;
+	__u32 comp_mask;
+	__u32 response_length;
+	struct ibv_odp_caps_resp odp_caps;
+	__u64 timestamp_mask;
+	__u64 hca_core_clock;
+	__u64 device_cap_flags_ex;
+};
+
 struct ibv_query_port {
 	__u32 command;
 	__u16 in_words;
@@ -333,11 +369,54 @@ struct ibv_reg_mr_resp {
 	__u32 rkey;
 };
 
+struct ibv_rereg_mr {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 mr_handle;
+	__u32 flags;
+	__u64 start;
+	__u64 length;
+	__u64 hca_va;
+	__u32 pd_handle;
+	__u32 access_flags;
+	__u64 driver_data[0];
+};
+
+struct ibv_rereg_mr_resp {
+	__u32 lkey;
+	__u32 rkey;
+};
+
 struct ibv_dereg_mr {
 	__u32 command;
 	__u16 in_words;
 	__u16 out_words;
 	__u32 mr_handle;
+};
+
+struct ibv_alloc_mw {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u64 response;
+	__u32 pd_handle;
+	__u8  mw_type;
+	__u8  reserved[3];
+};
+
+struct ibv_alloc_mw_resp {
+	__u32 mw_handle;
+	__u32 rkey;
+};
+
+struct ibv_dealloc_mw {
+	__u32 command;
+	__u16 in_words;
+	__u16 out_words;
+	__u32 mw_handle;
+	__u32 reserved;
 };
 
 struct ibv_create_comp_channel {
@@ -367,6 +446,27 @@ struct ibv_create_cq {
 struct ibv_create_cq_resp {
 	__u32 cq_handle;
 	__u32 cqe;
+};
+
+enum ibv_create_cq_ex_kernel_flags {
+	IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP = 1 << 0,
+};
+
+struct ibv_create_cq_ex {
+	struct ex_hdr	hdr;
+	__u64		user_handle;
+	__u32		cqe;
+	__u32		comp_vector;
+	__s32		comp_channel;
+	__u32		comp_mask;
+	__u32		flags;
+	__u32		reserved;
+};
+
+struct ibv_create_cq_resp_ex {
+	struct ibv_create_cq_resp	base;
+	__u32				comp_mask;
+	__u32				response_length;
 };
 
 struct ibv_kern_wc {
@@ -498,26 +598,33 @@ struct ibv_kern_qp_attr {
 	__u8	reserved[5];
 };
 
+#define IBV_CREATE_QP_COMMON	\
+	__u64 user_handle;	\
+	__u32 pd_handle;	\
+	__u32 send_cq_handle;	\
+	__u32 recv_cq_handle;	\
+	__u32 srq_handle;	\
+	__u32 max_send_wr;	\
+	__u32 max_recv_wr;	\
+	__u32 max_send_sge;	\
+	__u32 max_recv_sge;	\
+	__u32 max_inline_data;	\
+	__u8  sq_sig_all;	\
+	__u8  qp_type;		\
+	__u8  is_srq;		\
+	__u8  reserved
+
 struct ibv_create_qp {
 	__u32 command;
 	__u16 in_words;
 	__u16 out_words;
 	__u64 response;
-	__u64 user_handle;
-	__u32 pd_handle;
-	__u32 send_cq_handle;
-	__u32 recv_cq_handle;
-	__u32 srq_handle;
-	__u32 max_send_wr;
-	__u32 max_recv_wr;
-	__u32 max_send_sge;
-	__u32 max_recv_sge;
-	__u32 max_inline_data;
-	__u8  sq_sig_all;
-	__u8  qp_type;
-	__u8  is_srq;
-	__u8  reserved;
+	IBV_CREATE_QP_COMMON;
 	__u64 driver_data[0];
+};
+
+struct ibv_create_qp_common {
+	IBV_CREATE_QP_COMMON;
 };
 
 struct ibv_open_qp {
@@ -543,6 +650,19 @@ struct ibv_create_qp_resp {
 	__u32 max_recv_sge;
 	__u32 max_inline_data;
 	__u32 reserved;
+};
+
+struct ibv_create_qp_ex {
+	struct ex_hdr	hdr;
+	struct ibv_create_qp_common base;
+	__u32 comp_mask;
+	__u32 create_flags;
+};
+
+struct ibv_create_qp_resp_ex {
+	struct ibv_create_qp_resp base;
+	__u32 comp_mask;
+	__u32 response_length;
 };
 
 struct ibv_qp_dest {
@@ -1001,7 +1121,10 @@ enum {
 	IB_USER_VERBS_CMD_CREATE_XSRQ_V2 = -1,
 	IB_USER_VERBS_CMD_OPEN_QP_V2 = -1,
 	IB_USER_VERBS_CMD_CREATE_FLOW_V2 = -1,
-	IB_USER_VERBS_CMD_DESTROY_FLOW_V2 = -1
+	IB_USER_VERBS_CMD_DESTROY_FLOW_V2 = -1,
+	IB_USER_VERBS_CMD_QUERY_DEVICE_EX_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_QP_EX_V2 = -1,
+	IB_USER_VERBS_CMD_CREATE_CQ_EX_V2 = -1,
 };
 
 struct ibv_modify_srq_v3 {

@@ -20,6 +20,15 @@
 /* Define to 1 if you have the `dl' library (-ldl). */
 #undef HAVE_LIBDL
 
+/* Define to 1 if you have the `nl' library (-lnl). */
+#undef HAVE_LIBNL
+
+/* Use libnl-1 */
+#undef HAVE_LIBNL1
+
+/* Use libnl-3.0 */
+#undef HAVE_LIBNL3
+
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #undef HAVE_LIBPTHREAD
 
@@ -56,9 +65,11 @@
 /* Define to 1 if you have the <valgrind/memcheck.h> header file. */
 #undef HAVE_VALGRIND_MEMCHECK_H
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
+
+/* Define to 1 to disable resovle neigh annotations. */
+#undef NRESOLVE_NEIGH
 
 /* Define to 1 to disable Valgrind annotations. */
 #undef NVALGRIND

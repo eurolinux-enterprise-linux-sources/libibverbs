@@ -66,6 +66,52 @@ int ibv_cmd_get_context(struct ibv_context *context, struct ibv_get_context *cmd
 	return 0;
 }
 
+static void copy_query_dev_fields(struct ibv_device_attr *device_attr,
+				  struct ibv_query_device_resp *resp,
+				  uint64_t *raw_fw_ver)
+{
+	*raw_fw_ver				= resp->fw_ver;
+	device_attr->node_guid			= resp->node_guid;
+	device_attr->sys_image_guid		= resp->sys_image_guid;
+	device_attr->max_mr_size		= resp->max_mr_size;
+	device_attr->page_size_cap		= resp->page_size_cap;
+	device_attr->vendor_id			= resp->vendor_id;
+	device_attr->vendor_part_id		= resp->vendor_part_id;
+	device_attr->hw_ver			= resp->hw_ver;
+	device_attr->max_qp			= resp->max_qp;
+	device_attr->max_qp_wr			= resp->max_qp_wr;
+	device_attr->device_cap_flags		= resp->device_cap_flags;
+	device_attr->max_sge			= resp->max_sge;
+	device_attr->max_sge_rd			= resp->max_sge_rd;
+	device_attr->max_cq			= resp->max_cq;
+	device_attr->max_cqe			= resp->max_cqe;
+	device_attr->max_mr			= resp->max_mr;
+	device_attr->max_pd			= resp->max_pd;
+	device_attr->max_qp_rd_atom		= resp->max_qp_rd_atom;
+	device_attr->max_ee_rd_atom		= resp->max_ee_rd_atom;
+	device_attr->max_res_rd_atom		= resp->max_res_rd_atom;
+	device_attr->max_qp_init_rd_atom	= resp->max_qp_init_rd_atom;
+	device_attr->max_ee_init_rd_atom	= resp->max_ee_init_rd_atom;
+	device_attr->atomic_cap			= resp->atomic_cap;
+	device_attr->max_ee			= resp->max_ee;
+	device_attr->max_rdd			= resp->max_rdd;
+	device_attr->max_mw			= resp->max_mw;
+	device_attr->max_raw_ipv6_qp		= resp->max_raw_ipv6_qp;
+	device_attr->max_raw_ethy_qp		= resp->max_raw_ethy_qp;
+	device_attr->max_mcast_grp		= resp->max_mcast_grp;
+	device_attr->max_mcast_qp_attach	= resp->max_mcast_qp_attach;
+	device_attr->max_total_mcast_qp_attach	= resp->max_total_mcast_qp_attach;
+	device_attr->max_ah			= resp->max_ah;
+	device_attr->max_fmr			= resp->max_fmr;
+	device_attr->max_map_per_fmr		= resp->max_map_per_fmr;
+	device_attr->max_srq			= resp->max_srq;
+	device_attr->max_srq_wr			= resp->max_srq_wr;
+	device_attr->max_srq_sge		= resp->max_srq_sge;
+	device_attr->max_pkeys			= resp->max_pkeys;
+	device_attr->local_ca_ack_delay		= resp->local_ca_ack_delay;
+	device_attr->phys_port_cnt		= resp->phys_port_cnt;
+}
+
 int ibv_cmd_query_device(struct ibv_context *context,
 			 struct ibv_device_attr *device_attr,
 			 uint64_t *raw_fw_ver,
@@ -81,46 +127,98 @@ int ibv_cmd_query_device(struct ibv_context *context,
 	(void) VALGRIND_MAKE_MEM_DEFINED(&resp, sizeof resp);
 
 	memset(device_attr->fw_ver, 0, sizeof device_attr->fw_ver);
-	*raw_fw_ver			       = resp.fw_ver;
-	device_attr->node_guid 		       = resp.node_guid;
-	device_attr->sys_image_guid 	       = resp.sys_image_guid;
-	device_attr->max_mr_size 	       = resp.max_mr_size;
-	device_attr->page_size_cap 	       = resp.page_size_cap;
-	device_attr->vendor_id 		       = resp.vendor_id;
-	device_attr->vendor_part_id 	       = resp.vendor_part_id;
-	device_attr->hw_ver 		       = resp.hw_ver;
-	device_attr->max_qp 		       = resp.max_qp;
-	device_attr->max_qp_wr 		       = resp.max_qp_wr;
-	device_attr->device_cap_flags 	       = resp.device_cap_flags;
-	device_attr->max_sge 		       = resp.max_sge;
-	device_attr->max_sge_rd 	       = resp.max_sge_rd;
-	device_attr->max_cq 		       = resp.max_cq;
-	device_attr->max_cqe 		       = resp.max_cqe;
-	device_attr->max_mr 		       = resp.max_mr;
-	device_attr->max_pd 		       = resp.max_pd;
-	device_attr->max_qp_rd_atom 	       = resp.max_qp_rd_atom;
-	device_attr->max_ee_rd_atom 	       = resp.max_ee_rd_atom;
-	device_attr->max_res_rd_atom 	       = resp.max_res_rd_atom;
-	device_attr->max_qp_init_rd_atom       = resp.max_qp_init_rd_atom;
-	device_attr->max_ee_init_rd_atom       = resp.max_ee_init_rd_atom;
-	device_attr->atomic_cap 	       = resp.atomic_cap;
-	device_attr->max_ee 		       = resp.max_ee;
-	device_attr->max_rdd 		       = resp.max_rdd;
-	device_attr->max_mw 		       = resp.max_mw;
-	device_attr->max_raw_ipv6_qp 	       = resp.max_raw_ipv6_qp;
-	device_attr->max_raw_ethy_qp 	       = resp.max_raw_ethy_qp;
-	device_attr->max_mcast_grp 	       = resp.max_mcast_grp;
-	device_attr->max_mcast_qp_attach       = resp.max_mcast_qp_attach;
-	device_attr->max_total_mcast_qp_attach = resp.max_total_mcast_qp_attach;
-	device_attr->max_ah 		       = resp.max_ah;
-	device_attr->max_fmr 		       = resp.max_fmr;
-	device_attr->max_map_per_fmr 	       = resp.max_map_per_fmr;
-	device_attr->max_srq 		       = resp.max_srq;
-	device_attr->max_srq_wr 	       = resp.max_srq_wr;
-	device_attr->max_srq_sge 	       = resp.max_srq_sge;
-	device_attr->max_pkeys 		       = resp.max_pkeys;
-	device_attr->local_ca_ack_delay        = resp.local_ca_ack_delay;
-	device_attr->phys_port_cnt	       = resp.phys_port_cnt;
+	copy_query_dev_fields(device_attr, &resp, raw_fw_ver);
+
+	return 0;
+}
+
+int ibv_cmd_query_device_ex(struct ibv_context *context,
+			    const struct ibv_query_device_ex_input *input,
+			    struct ibv_device_attr_ex *attr, size_t attr_size,
+			    uint64_t *raw_fw_ver,
+			    struct ibv_query_device_ex *cmd,
+			    size_t cmd_core_size,
+			    size_t cmd_size,
+			    struct ibv_query_device_resp_ex *resp,
+			    size_t resp_core_size,
+			    size_t resp_size)
+{
+	int err;
+
+	if (input && input->comp_mask)
+		return EINVAL;
+
+	if (attr_size < offsetof(struct ibv_device_attr_ex, comp_mask) +
+			sizeof(attr->comp_mask))
+		return EINVAL;
+
+	if (resp_core_size < offsetof(struct ibv_query_device_resp_ex,
+				      response_length) +
+			     sizeof(resp->response_length))
+		return EINVAL;
+
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size,
+			       QUERY_DEVICE_EX, resp, resp_core_size,
+			       resp_size);
+	cmd->comp_mask = 0;
+	cmd->reserved = 0;
+	memset(attr->orig_attr.fw_ver, 0, sizeof(attr->orig_attr.fw_ver));
+	err = write(context->cmd_fd, cmd, cmd_size);
+	if (err != cmd_size)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+	copy_query_dev_fields(&attr->orig_attr, &resp->base, raw_fw_ver);
+	/* Report back supported comp_mask bits. For now no comp_mask bit is
+	 * defined */
+	attr->comp_mask = resp->comp_mask & 0;
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, odp_caps) +
+			 sizeof(attr->odp_caps)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, odp_caps) +
+		    sizeof(resp->odp_caps)) {
+			attr->odp_caps.general_caps = resp->odp_caps.general_caps;
+			attr->odp_caps.per_transport_caps.rc_odp_caps =
+				resp->odp_caps.per_transport_caps.rc_odp_caps;
+			attr->odp_caps.per_transport_caps.uc_odp_caps =
+				resp->odp_caps.per_transport_caps.uc_odp_caps;
+			attr->odp_caps.per_transport_caps.ud_odp_caps =
+				resp->odp_caps.per_transport_caps.ud_odp_caps;
+		} else {
+			memset(&attr->odp_caps, 0, sizeof(attr->odp_caps));
+		}
+	}
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex,
+				  completion_timestamp_mask) +
+			 sizeof(attr->completion_timestamp_mask)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, timestamp_mask) +
+		    sizeof(resp->timestamp_mask))
+			attr->completion_timestamp_mask = resp->timestamp_mask;
+		else
+			attr->completion_timestamp_mask = 0;
+	}
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, hca_core_clock) +
+			 sizeof(attr->hca_core_clock)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, hca_core_clock) +
+		    sizeof(resp->hca_core_clock))
+			attr->hca_core_clock = resp->hca_core_clock;
+		else
+			attr->hca_core_clock = 0;
+	}
+
+	if (attr_size >= offsetof(struct ibv_device_attr_ex, device_cap_flags_ex) +
+			 sizeof(attr->device_cap_flags_ex)) {
+		if (resp->response_length >=
+		    offsetof(struct ibv_query_device_resp_ex, device_cap_flags_ex) +
+		    sizeof(resp->device_cap_flags_ex))
+			attr->device_cap_flags_ex = resp->device_cap_flags_ex;
+		else
+			attr->device_cap_flags_ex = 0;
+	}
 
 	return 0;
 }
@@ -267,6 +365,35 @@ int ibv_cmd_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 	return 0;
 }
 
+int ibv_cmd_rereg_mr(struct ibv_mr *mr, uint32_t flags, void *addr,
+		     size_t length, uint64_t hca_va, int access,
+		     struct ibv_pd *pd, struct ibv_rereg_mr *cmd,
+		     size_t cmd_sz, struct ibv_rereg_mr_resp *resp,
+		     size_t resp_sz)
+{
+	IBV_INIT_CMD_RESP(cmd, cmd_sz, REREG_MR, resp, resp_sz);
+
+	cmd->mr_handle	  = mr->handle;
+	cmd->flags	  = flags;
+	cmd->start	  = (uintptr_t)addr;
+	cmd->length	  = length;
+	cmd->hca_va	  = hca_va;
+	cmd->pd_handle	  = (flags & IBV_REREG_MR_CHANGE_PD) ? pd->handle : 0;
+	cmd->access_flags = access;
+
+	if (write(mr->context->cmd_fd, cmd, cmd_sz) != cmd_sz)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_sz);
+
+	mr->lkey    = resp->lkey;
+	mr->rkey    = resp->rkey;
+	if (flags & IBV_REREG_MR_CHANGE_PD)
+		mr->context = pd->context;
+
+	return 0;
+}
+
 int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 {
 	struct ibv_dereg_mr cmd;
@@ -275,6 +402,43 @@ int ibv_cmd_dereg_mr(struct ibv_mr *mr)
 	cmd.mr_handle = mr->handle;
 
 	if (write(mr->context->cmd_fd, &cmd, sizeof cmd) != sizeof cmd)
+		return errno;
+
+	return 0;
+}
+
+int ibv_cmd_alloc_mw(struct ibv_pd *pd, enum ibv_mw_type type,
+		     struct ibv_mw *mw, struct ibv_alloc_mw *cmd,
+		     size_t cmd_size,
+		     struct ibv_alloc_mw_resp *resp, size_t resp_size)
+{
+	IBV_INIT_CMD_RESP(cmd, cmd_size, ALLOC_MW, resp, resp_size);
+	cmd->pd_handle	= pd->handle;
+	cmd->mw_type	= type;
+	memset(cmd->reserved, 0, sizeof(cmd->reserved));
+
+	if (write(pd->context->cmd_fd, cmd, cmd_size) != cmd_size)
+		return errno;
+
+	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	mw->context = pd->context;
+	mw->pd      = pd;
+	mw->rkey    = resp->rkey;
+	mw->handle  = resp->mw_handle;
+	mw->type    = type;
+
+	return 0;
+}
+
+int ibv_cmd_dealloc_mw(struct ibv_mw *mw,
+		       struct ibv_dealloc_mw *cmd, size_t cmd_size)
+{
+	IBV_INIT_CMD(cmd, cmd_size, DEALLOC_MW);
+	cmd->mw_handle = mw->handle;
+	cmd->reserved = 0;
+
+	if (write(mw->context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
 	return 0;
@@ -300,6 +464,54 @@ int ibv_cmd_create_cq(struct ibv_context *context, int cqe,
 
 	cq->handle  = resp->cq_handle;
 	cq->cqe     = resp->cqe;
+	cq->context = context;
+
+	return 0;
+}
+
+int ibv_cmd_create_cq_ex(struct ibv_context *context,
+			 struct ibv_cq_init_attr_ex *cq_attr,
+			 struct ibv_cq_ex *cq,
+			 struct ibv_create_cq_ex *cmd,
+			 size_t cmd_core_size,
+			 size_t cmd_size,
+			 struct ibv_create_cq_resp_ex *resp,
+			 size_t resp_core_size,
+			 size_t resp_size)
+{
+	int err;
+
+	memset(cmd, 0, cmd_core_size);
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_CQ_EX, resp,
+			       resp_core_size, resp_size);
+
+	if (cq_attr->comp_mask & ~(IBV_CQ_INIT_ATTR_MASK_RESERVED - 1))
+		return EINVAL;
+
+	cmd->user_handle   = (uintptr_t)cq;
+	cmd->cqe           = cq_attr->cqe;
+	cmd->comp_vector   = cq_attr->comp_vector;
+	cmd->comp_channel  = cq_attr->channel ? cq_attr->channel->fd : -1;
+	cmd->comp_mask = 0;
+
+	if (cmd_core_size >= offsetof(struct ibv_create_cq_ex, flags) +
+	    sizeof(cmd->flags)) {
+		if ((cq_attr->comp_mask & IBV_CQ_INIT_ATTR_MASK_FLAGS) &&
+		    (cq_attr->flags & ~(IBV_CREATE_CQ_ATTR_RESERVED - 1)))
+			return EOPNOTSUPP;
+
+		if (cq_attr->wc_flags & IBV_WC_EX_WITH_COMPLETION_TIMESTAMP)
+			cmd->flags |= IBV_CREATE_CQ_EX_KERNEL_FLAG_COMPLETION_TIMESTAMP;
+	}
+
+	err = write(context->cmd_fd, cmd, cmd_size);
+	if (err != cmd_size)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	cq->handle  = resp->base.cq_handle;
+	cq->cqe     = resp->base.cqe;
 	cq->context = context;
 
 	return 0;
@@ -610,6 +822,136 @@ int ibv_cmd_destroy_srq(struct ibv_srq *srq)
 	return 0;
 }
 
+static int create_qp_ex_common(struct verbs_qp *qp,
+			       struct ibv_qp_init_attr_ex *qp_attr,
+			       struct verbs_xrcd *vxrcd,
+			       struct ibv_create_qp_common *cmd)
+{
+	cmd->user_handle = (uintptr_t)qp;
+
+	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_XRCD) {
+		vxrcd = container_of(qp_attr->xrcd, struct verbs_xrcd, xrcd);
+		cmd->pd_handle	= vxrcd->handle;
+	} else {
+		if (!(qp_attr->comp_mask & IBV_QP_INIT_ATTR_PD))
+			return EINVAL;
+
+		cmd->pd_handle	= qp_attr->pd->handle;
+		cmd->send_cq_handle = qp_attr->send_cq->handle;
+
+		if (qp_attr->qp_type != IBV_QPT_XRC_SEND) {
+			cmd->recv_cq_handle = qp_attr->recv_cq->handle;
+			cmd->srq_handle = qp_attr->srq ? qp_attr->srq->handle :
+							 0;
+		}
+	}
+
+	cmd->max_send_wr     = qp_attr->cap.max_send_wr;
+	cmd->max_recv_wr     = qp_attr->cap.max_recv_wr;
+	cmd->max_send_sge    = qp_attr->cap.max_send_sge;
+	cmd->max_recv_sge    = qp_attr->cap.max_recv_sge;
+	cmd->max_inline_data = qp_attr->cap.max_inline_data;
+	cmd->sq_sig_all	     = qp_attr->sq_sig_all;
+	cmd->qp_type         = qp_attr->qp_type;
+	cmd->is_srq	     = !!qp_attr->srq;
+	cmd->reserved	     = 0;
+
+	return 0;
+}
+
+static void create_qp_handle_resp_common(struct ibv_context *context,
+					 struct verbs_qp *qp,
+					 struct ibv_qp_init_attr_ex *qp_attr,
+					 struct ibv_create_qp_resp *resp,
+					 struct verbs_xrcd *vxrcd,
+					 int vqp_sz)
+{
+	if (abi_ver > 3) {
+		qp_attr->cap.max_recv_sge    = resp->max_recv_sge;
+		qp_attr->cap.max_send_sge    = resp->max_send_sge;
+		qp_attr->cap.max_recv_wr     = resp->max_recv_wr;
+		qp_attr->cap.max_send_wr     = resp->max_send_wr;
+		qp_attr->cap.max_inline_data = resp->max_inline_data;
+	}
+
+	qp->qp.handle		= resp->qp_handle;
+	qp->qp.qp_num		= resp->qpn;
+	qp->qp.context		= context;
+	qp->qp.qp_context	= qp_attr->qp_context;
+	qp->qp.pd		= qp_attr->pd;
+	qp->qp.send_cq		= qp_attr->send_cq;
+	qp->qp.recv_cq		= qp_attr->recv_cq;
+	qp->qp.srq		= qp_attr->srq;
+	qp->qp.qp_type		= qp_attr->qp_type;
+	qp->qp.state		= IBV_QPS_RESET;
+	qp->qp.events_completed = 0;
+	pthread_mutex_init(&qp->qp.mutex, NULL);
+	pthread_cond_init(&qp->qp.cond, NULL);
+
+	qp->comp_mask = 0;
+	if (vext_field_avail(struct verbs_qp, xrcd, vqp_sz) &&
+	    (qp_attr->comp_mask & IBV_QP_INIT_ATTR_XRCD)) {
+		qp->comp_mask |= VERBS_QP_XRCD;
+		qp->xrcd = vxrcd;
+	}
+}
+
+enum {
+	CREATE_QP_EX2_SUP_CREATE_FLAGS = IBV_QP_CREATE_BLOCK_SELF_MCAST_LB |
+		IBV_QP_CREATE_SCATTER_FCS,
+};
+
+int ibv_cmd_create_qp_ex2(struct ibv_context *context,
+			  struct verbs_qp *qp, int vqp_sz,
+			  struct ibv_qp_init_attr_ex *qp_attr,
+			  struct ibv_create_qp_ex *cmd,
+			  size_t cmd_core_size,
+			  size_t cmd_size,
+			  struct ibv_create_qp_resp_ex *resp,
+			  size_t resp_core_size,
+			  size_t resp_size)
+{
+	struct verbs_xrcd *vxrcd = NULL;
+	int err;
+
+	if (qp_attr->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
+		return EINVAL;
+
+	if (resp_core_size <
+	    offsetof(struct ibv_create_qp_resp_ex, response_length) +
+	    sizeof(resp->response_length))
+		return EINVAL;
+
+	memset(cmd, 0, cmd_core_size);
+
+	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_core_size, cmd_size, CREATE_QP_EX, resp,
+			       resp_core_size, resp_size);
+
+	err = create_qp_ex_common(qp, qp_attr, vxrcd, &cmd->base);
+	if (err)
+		return err;
+
+	if (qp_attr->comp_mask & IBV_QP_INIT_ATTR_CREATE_FLAGS) {
+		if (qp_attr->create_flags & ~CREATE_QP_EX2_SUP_CREATE_FLAGS)
+			return EINVAL;
+		if (cmd_core_size < offsetof(struct ibv_create_qp_ex, create_flags) +
+				    sizeof(qp_attr->create_flags))
+			return EINVAL;
+		cmd->create_flags = qp_attr->create_flags;
+	}
+
+	err = write(context->cmd_fd, cmd, cmd_size);
+	if (err != cmd_size)
+		return errno;
+
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
+
+	create_qp_handle_resp_common(context, qp, qp_attr, &resp->base, vxrcd,
+				     vqp_sz);
+
+	return 0;
+}
+
 int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			 struct verbs_qp *qp, int vqp_sz,
 			 struct ibv_qp_init_attr_ex *attr_ex,
@@ -617,52 +959,22 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			 struct ibv_create_qp_resp *resp, size_t resp_size)
 {
 	struct verbs_xrcd *vxrcd = NULL;
+	int err;
 
 	IBV_INIT_CMD_RESP(cmd, cmd_size, CREATE_QP, resp, resp_size);
 
-	if (attr_ex->comp_mask >= IBV_QP_INIT_ATTR_RESERVED)
+	if (attr_ex->comp_mask > (IBV_QP_INIT_ATTR_XRCD | IBV_QP_INIT_ATTR_PD))
 		return ENOSYS;
 
-	cmd->user_handle     = (uintptr_t) qp;
-
-	if (attr_ex->comp_mask & IBV_QP_INIT_ATTR_XRCD) {
-		vxrcd = container_of(attr_ex->xrcd, struct verbs_xrcd, xrcd);
-		cmd->pd_handle	= vxrcd->handle;
-	} else {
-		if (!(attr_ex->comp_mask & IBV_QP_INIT_ATTR_PD))
-			return EINVAL;
-
-		cmd->pd_handle	= attr_ex->pd->handle;
-		cmd->send_cq_handle = attr_ex->send_cq->handle;
-
-		if (attr_ex->qp_type != IBV_QPT_XRC_SEND) {
-			cmd->recv_cq_handle = attr_ex->recv_cq->handle;
-			cmd->srq_handle = attr_ex->srq ? attr_ex->srq->handle : 0;
-		}
-	}
-
-	cmd->max_send_wr     = attr_ex->cap.max_send_wr;
-	cmd->max_recv_wr     = attr_ex->cap.max_recv_wr;
-	cmd->max_send_sge    = attr_ex->cap.max_send_sge;
-	cmd->max_recv_sge    = attr_ex->cap.max_recv_sge;
-	cmd->max_inline_data = attr_ex->cap.max_inline_data;
-	cmd->sq_sig_all	     = attr_ex->sq_sig_all;
-	cmd->qp_type         = attr_ex->qp_type;
-	cmd->is_srq	     = !!attr_ex->srq;
-	cmd->reserved	     = 0;
+	err = create_qp_ex_common(qp, attr_ex, vxrcd,
+				  (struct ibv_create_qp_common *)&cmd->user_handle);
+	if (err)
+		return err;
 
 	if (write(context->cmd_fd, cmd, cmd_size) != cmd_size)
 		return errno;
 
-	(void) VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
-
-	if (abi_ver > 3) {
-		attr_ex->cap.max_recv_sge    = resp->max_recv_sge;
-		attr_ex->cap.max_send_sge    = resp->max_send_sge;
-		attr_ex->cap.max_recv_wr     = resp->max_recv_wr;
-		attr_ex->cap.max_send_wr     = resp->max_send_wr;
-		attr_ex->cap.max_inline_data = resp->max_inline_data;
-	}
+	(void)VALGRIND_MAKE_MEM_DEFINED(resp, resp_size);
 
 	if (abi_ver == 4) {
 		struct ibv_create_qp_resp_v4 *resp_v4 =
@@ -680,26 +992,7 @@ int ibv_cmd_create_qp_ex(struct ibv_context *context,
 			resp_size - sizeof *resp);
 	}
 
-	qp->qp.handle		= resp->qp_handle;
-	qp->qp.qp_num		= resp->qpn;
-	qp->qp.context		= context;
-	qp->qp.qp_context	= attr_ex->qp_context;
-	qp->qp.pd		= attr_ex->pd;
-	qp->qp.send_cq		= attr_ex->send_cq;
-	qp->qp.recv_cq		= attr_ex->recv_cq;
-	qp->qp.srq		= attr_ex->srq;
-	qp->qp.qp_type		= attr_ex->qp_type;
-	qp->qp.state		= IBV_QPS_RESET;
-	qp->qp.events_completed = 0;
-	pthread_mutex_init(&qp->qp.mutex, NULL);
-	pthread_cond_init(&qp->qp.cond, NULL);
-
-	qp->comp_mask = 0;
-	if (vext_field_avail(struct verbs_qp, xrcd, vqp_sz) &&
-			    (attr_ex->comp_mask & IBV_QP_INIT_ATTR_XRCD)) {
-		qp->comp_mask |= VERBS_QP_XRCD;
-		qp->xrcd = vxrcd;
-	}
+	create_qp_handle_resp_common(context, qp, attr_ex, resp, vxrcd, vqp_sz);
 
 	return 0;
 }

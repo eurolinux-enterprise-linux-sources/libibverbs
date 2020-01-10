@@ -1,19 +1,12 @@
 Name: libibverbs
-Version: 1.1.8
-Release: 8%{?dist}
+Version: 1.2.1
+Release: 1%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
 Url: https://www.openfabrics.org/
 Source: https://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
-Patch0: 0001-example-fix-argiment-processing.patch
-Patch1: 0002-libibverbs-init.c-conditionally-emit-warning-if-no-u.patch
-Patch2: 0003-sysfs_file_read-treat-a-truncate-as-a-failure.patch
-Patch3: 0004-Add-ibv_port_cap_flags.patch
-Patch4: 0005-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
-Patch5: 0006-libibverbs-add-support-for-the-s390x-platform.patch
-Patch6: 0007-Fix-create-destroy-flow-API.patch
-Patch7: 0012-libibverbs-Report-checksum-offload-capabilities.patch
+Patch1: 0001-Revert-Fail-compiles-if-no-platform-specific-memory-.patch
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 %ifnarch ia64 %{sparc} s390 s390x
 BuildRequires: valgrind-devel
@@ -56,22 +49,14 @@ Requires: %{name} = %{version}-%{release}
 Requires: libibverbs-driver.%{_arch}
 
 %description utils
-Useful libibverbs1 example programs such as ibv_devinfo, which
+Useful libibverbs example programs such as ibv_devinfo, which
 displays information about RDMA devices.
 
 %prep
 %setup -q
-%patch0 -p1
 %patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
 
 %build
-autoreconf -i
 %ifnarch ia64 %{sparc} s390 s390x
 %configure --with-valgrind
 %else
@@ -98,7 +83,8 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %dir %{_sysconfdir}/libibverbs.d
 %{_libdir}/libibverbs*.so.*
-%doc AUTHORS COPYING ChangeLog README
+%license COPYING
+%doc AUTHORS ChangeLog README
 
 %files devel
 %defattr(-,root,root,-)
@@ -116,6 +102,17 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
+* Tue Jul 19 2016 Jarod Wilson <jarod@redhat.com> - 1.2.1-1
+- Update to upstream v1.2.1 release
+- Resovles: bz1258684
+
+* Tue May 24 2016 Jarod Wilson <jarod@redhat.com> - 1.2.0-2
+- Add manpage for ibv_xsrq_pingpong (rhbz#1074936)
+
+* Wed Apr 13 2016 Jarod Wilson <jarod@redhat.com> - 1.2.0-1
+- Update to upstream v1.2.0 release
+- Resolves: bz1298704
+
 * Wed Sep 30 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-8
 - Rebuild against libnl3 against now that UD RoCE bug is fixed
 - Related: bz1261028
