@@ -1,24 +1,27 @@
 Name: libibverbs
 Version: 1.1.8
-Release: 5%{?dist}
+Release: 8%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
 Url: https://www.openfabrics.org/
 Source: https://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
-Patch0: libibverbs-1.1.7-arg-fixes.patch
-Patch1: 0001-Add-ibv_port_cap_flags.patch
-Patch2: 0002-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
-Patch3: libibverbs-1.1.8-coverity-fixes.patch
+Patch0: 0001-example-fix-argiment-processing.patch
+Patch1: 0002-libibverbs-init.c-conditionally-emit-warning-if-no-u.patch
+Patch2: 0003-sysfs_file_read-treat-a-truncate-as-a-failure.patch
+Patch3: 0004-Add-ibv_port_cap_flags.patch
+Patch4: 0005-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
+Patch5: 0006-libibverbs-add-support-for-the-s390x-platform.patch
+Patch6: 0007-Fix-create-destroy-flow-API.patch
+Patch7: 0012-libibverbs-Report-checksum-offload-capabilities.patch
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-%ifnarch ia64 %{sparc}
+%ifnarch ia64 %{sparc} s390 s390x
 BuildRequires: valgrind-devel
 %endif
 BuildRequires: automake, autoconf, libnl3-devel, libtool
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 Requires: rdma
-ExcludeArch: s390 s390x
 
 %description
 libibverbs is a library that allows userspace processes to use RDMA
@@ -58,14 +61,18 @@ displays information about RDMA devices.
 
 %prep
 %setup -q
-%patch0 -p1 -b .fixes
+%patch0 -p1
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1 -b .coverity
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
+%patch6 -p1
+%patch7 -p1
 
 %build
 autoreconf -i
-%ifnarch ia64 %{sparc}
+%ifnarch ia64 %{sparc} s390 s390x
 %configure --with-valgrind
 %else
 %configure
@@ -109,6 +116,20 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
+* Wed Sep 30 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-8
+- Rebuild against libnl3 against now that UD RoCE bug is fixed
+- Related: bz1261028
+
+* Wed Sep 23 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-7
+- Add checksum offload support
+- Update the various patches to the ones from the official upstream git repo
+- Related: bz1195888
+
+* Fri Jun 05 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-6
+- Add build on s390
+- Drop back to building against libnl instead of libnl3
+- Resolves: bz1182178, bz1177115
+
 * Tue Dec 23 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-5
 - Add a specific requires on the rdma package
 - Related: bz1164618

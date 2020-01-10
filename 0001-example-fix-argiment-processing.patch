@@ -1,7 +1,29 @@
-diff -up libibverbs-1.1.7/examples/rc_pingpong.c.fixes libibverbs-1.1.7/examples/rc_pingpong.c
---- libibverbs-1.1.7/examples/rc_pingpong.c.fixes	2013-05-06 14:50:50.000000000 -0400
-+++ libibverbs-1.1.7/examples/rc_pingpong.c	2013-07-31 18:43:50.242511781 -0400
-@@ -544,12 +544,12 @@ int main(int argc, char *argv[])
+From 252749ced9cacc991f116ebc99d4f5e4e15e55cc Mon Sep 17 00:00:00 2001
+Message-Id: <252749ced9cacc991f116ebc99d4f5e4e15e55cc.1443021080.git.dledford@redhat.com>
+From: Doug Ledford <dledford@redhat.com>
+Date: Mon, 8 Jun 2015 09:36:00 -0400
+Subject: [PATCH libibverbs 01/12] example: fix argiment processing
+To: linux-rdma@vger.kernel.org
+
+Various arguments that should be unsigned were signed, giving rise to
+the possiblity of people passing negative numbers when they intended to
+pass large positive numbers (this was mainly seen in real world usage
+with the size argument).  Switch the args that are never legitimately
+negative to unsigned.
+
+Signed-off-by: Doug Ledford <dledford@redhat.com>
+---
+ examples/rc_pingpong.c  | 20 ++++++++++----------
+ examples/srq_pingpong.c | 28 ++++++++++++++++------------
+ examples/uc_pingpong.c  | 20 ++++++++++----------
+ examples/ud_pingpong.c  | 18 +++++++++---------
+ 4 files changed, 45 insertions(+), 41 deletions(-)
+
+diff --git a/examples/rc_pingpong.c b/examples/rc_pingpong.c
+index a8637a5e1bf5..ddfe8d007e1a 100644
+--- a/examples/rc_pingpong.c
++++ b/examples/rc_pingpong.c
+@@ -552,12 +552,12 @@ int main(int argc, char *argv[])
  	struct timeval           start, end;
  	char                    *ib_devname = NULL;
  	char                    *servername = NULL;
@@ -18,7 +40,7 @@ diff -up libibverbs-1.1.7/examples/rc_pingpong.c.fixes libibverbs-1.1.7/examples
  	int                      use_event = 0;
  	int                      routs;
  	int                      rcnt, scnt;
-@@ -584,8 +584,8 @@ int main(int argc, char *argv[])
+@@ -592,8 +592,8 @@ int main(int argc, char *argv[])
  
  		switch (c) {
  		case 'p':
@@ -29,7 +51,7 @@ diff -up libibverbs-1.1.7/examples/rc_pingpong.c.fixes libibverbs-1.1.7/examples
  				usage(argv[0]);
  				return 1;
  			}
-@@ -597,14 +597,14 @@ int main(int argc, char *argv[])
+@@ -605,14 +605,14 @@ int main(int argc, char *argv[])
  
  		case 'i':
  			ib_port = strtol(optarg, NULL, 0);
@@ -46,7 +68,7 @@ diff -up libibverbs-1.1.7/examples/rc_pingpong.c.fixes libibverbs-1.1.7/examples
  			break;
  
  		case 'm':
-@@ -616,11 +616,11 @@ int main(int argc, char *argv[])
+@@ -624,11 +624,11 @@ int main(int argc, char *argv[])
  			break;
  
  		case 'r':
@@ -60,10 +82,11 @@ diff -up libibverbs-1.1.7/examples/rc_pingpong.c.fixes libibverbs-1.1.7/examples
  			break;
  
  		case 'l':
-diff -up libibverbs-1.1.7/examples/srq_pingpong.c.fixes libibverbs-1.1.7/examples/srq_pingpong.c
---- libibverbs-1.1.7/examples/srq_pingpong.c.fixes	2013-05-06 14:50:50.000000000 -0400
-+++ libibverbs-1.1.7/examples/srq_pingpong.c	2013-07-31 18:46:47.915952519 -0400
-@@ -617,13 +617,13 @@ int main(int argc, char *argv[])
+diff --git a/examples/srq_pingpong.c b/examples/srq_pingpong.c
+index 552a144c830b..f61acb006c83 100644
+--- a/examples/srq_pingpong.c
++++ b/examples/srq_pingpong.c
+@@ -624,13 +624,13 @@ int main(int argc, char *argv[])
  	struct timeval           start, end;
  	char                    *ib_devname = NULL;
  	char                    *servername = NULL;
@@ -82,7 +105,7 @@ diff -up libibverbs-1.1.7/examples/srq_pingpong.c.fixes libibverbs-1.1.7/example
  	int                      use_event = 0;
  	int                      routs;
  	int                      rcnt, scnt;
-@@ -661,8 +661,8 @@ int main(int argc, char *argv[])
+@@ -668,8 +668,8 @@ int main(int argc, char *argv[])
  
  		switch (c) {
  		case 'p':
@@ -93,7 +116,7 @@ diff -up libibverbs-1.1.7/examples/srq_pingpong.c.fixes libibverbs-1.1.7/example
  				usage(argv[0]);
  				return 1;
  			}
-@@ -674,14 +674,18 @@ int main(int argc, char *argv[])
+@@ -681,14 +681,18 @@ int main(int argc, char *argv[])
  
  		case 'i':
  			ib_port = strtol(optarg, NULL, 0);
@@ -114,7 +137,7 @@ diff -up libibverbs-1.1.7/examples/srq_pingpong.c.fixes libibverbs-1.1.7/example
  			break;
  
  		case 'm':
-@@ -693,15 +697,15 @@ int main(int argc, char *argv[])
+@@ -700,15 +704,15 @@ int main(int argc, char *argv[])
  			break;
  
  		case 'q':
@@ -133,10 +156,11 @@ diff -up libibverbs-1.1.7/examples/srq_pingpong.c.fixes libibverbs-1.1.7/example
  			break;
  
  		case 'l':
-diff -up libibverbs-1.1.7/examples/uc_pingpong.c.fixes libibverbs-1.1.7/examples/uc_pingpong.c
---- libibverbs-1.1.7/examples/uc_pingpong.c.fixes	2013-07-31 18:49:48.611367303 -0400
-+++ libibverbs-1.1.7/examples/uc_pingpong.c	2013-07-31 18:56:13.271986648 -0400
-@@ -532,12 +532,12 @@ int main(int argc, char *argv[])
+diff --git a/examples/uc_pingpong.c b/examples/uc_pingpong.c
+index 58cc3ccf160c..272dc2668708 100644
+--- a/examples/uc_pingpong.c
++++ b/examples/uc_pingpong.c
+@@ -539,12 +539,12 @@ int main(int argc, char *argv[])
  	struct timeval           start, end;
  	char                    *ib_devname = NULL;
  	char                    *servername = NULL;
@@ -153,7 +177,7 @@ diff -up libibverbs-1.1.7/examples/uc_pingpong.c.fixes libibverbs-1.1.7/examples
  	int                      use_event = 0;
  	int                      routs;
  	int                      rcnt, scnt;
-@@ -572,8 +572,8 @@ int main(int argc, char *argv[])
+@@ -579,8 +579,8 @@ int main(int argc, char *argv[])
  
  		switch (c) {
  		case 'p':
@@ -164,7 +188,7 @@ diff -up libibverbs-1.1.7/examples/uc_pingpong.c.fixes libibverbs-1.1.7/examples
  				usage(argv[0]);
  				return 1;
  			}
-@@ -585,14 +585,14 @@ int main(int argc, char *argv[])
+@@ -592,14 +592,14 @@ int main(int argc, char *argv[])
  
  		case 'i':
  			ib_port = strtol(optarg, NULL, 0);
@@ -181,7 +205,7 @@ diff -up libibverbs-1.1.7/examples/uc_pingpong.c.fixes libibverbs-1.1.7/examples
  			break;
  
  		case 'm':
-@@ -604,11 +604,11 @@ int main(int argc, char *argv[])
+@@ -611,11 +611,11 @@ int main(int argc, char *argv[])
  			break;
  
  		case 'r':
@@ -195,10 +219,11 @@ diff -up libibverbs-1.1.7/examples/uc_pingpong.c.fixes libibverbs-1.1.7/examples
  			break;
  
  		case 'l':
-diff -up libibverbs-1.1.7/examples/ud_pingpong.c.fixes libibverbs-1.1.7/examples/ud_pingpong.c
---- libibverbs-1.1.7/examples/ud_pingpong.c.fixes	2013-07-31 18:49:53.987320166 -0400
-+++ libibverbs-1.1.7/examples/ud_pingpong.c	2013-07-31 18:55:26.609398792 -0400
-@@ -555,11 +555,11 @@ int main(int argc, char *argv[])
+diff --git a/examples/ud_pingpong.c b/examples/ud_pingpong.c
+index 91022419b4a2..6d32cedc1284 100644
+--- a/examples/ud_pingpong.c
++++ b/examples/ud_pingpong.c
+@@ -563,11 +563,11 @@ int main(int argc, char *argv[])
  	struct timeval           start, end;
  	char                    *ib_devname = NULL;
  	char                    *servername = NULL;
@@ -214,7 +239,7 @@ diff -up libibverbs-1.1.7/examples/ud_pingpong.c.fixes libibverbs-1.1.7/examples
  	int                      use_event = 0;
  	int                      routs;
  	int                      rcnt, scnt;
-@@ -594,7 +594,7 @@ int main(int argc, char *argv[])
+@@ -602,7 +602,7 @@ int main(int argc, char *argv[])
  		switch (c) {
  		case 'p':
  			port = strtol(optarg, NULL, 0);
@@ -223,7 +248,7 @@ diff -up libibverbs-1.1.7/examples/ud_pingpong.c.fixes libibverbs-1.1.7/examples
  				usage(argv[0]);
  				return 1;
  			}
-@@ -606,22 +606,22 @@ int main(int argc, char *argv[])
+@@ -614,22 +614,22 @@ int main(int argc, char *argv[])
  
  		case 'i':
  			ib_port = strtol(optarg, NULL, 0);
@@ -250,3 +275,6 @@ diff -up libibverbs-1.1.7/examples/ud_pingpong.c.fixes libibverbs-1.1.7/examples
  			break;
  
  		case 'l':
+-- 
+2.4.3
+

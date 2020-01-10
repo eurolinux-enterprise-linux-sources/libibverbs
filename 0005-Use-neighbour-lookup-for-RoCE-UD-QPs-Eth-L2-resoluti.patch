@@ -1,37 +1,12 @@
-Return-Path: matanb@mellanox.com
-Received: from zmta06.collab.prod.int.phx2.redhat.com (LHLO
- zmta06.collab.prod.int.phx2.redhat.com) (10.5.81.13) by
- zmail13.collab.prod.int.phx2.redhat.com with LMTP; Thu, 18 Sep 2014
- 10:54:01 -0400 (EDT)
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by zmta06.collab.prod.int.phx2.redhat.com (Postfix) with ESMTP id 1B804168529
-	for <dledford@mail.corp.redhat.com>; Thu, 18 Sep 2014 10:54:01 -0400 (EDT)
-Received: from mx1.redhat.com (ext-mx15.extmail.prod.ext.phx2.redhat.com [10.5.110.20])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s8IEs0Gk030734
-	for <dledford@redhat.com>; Thu, 18 Sep 2014 10:54:00 -0400
-Received: from mellanox.co.il (mailp.voltaire.com [193.47.165.129] (may be forged))
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s8IEraod021340
-	for <dledford@redhat.com>; Thu, 18 Sep 2014 10:53:40 -0400
-Received: from Internal Mail-Server by MTLPINE2 (envelope-from matanb@mellanox.com)
-	with SMTP; 18 Sep 2014 17:53:31 +0300
-Received: from r-vnc06.mtr.labs.mlnx (r-vnc06.mtr.labs.mlnx [10.208.0.117])
-	by labmailer.mlnx (8.13.8/8.13.8) with ESMTP id s8IErQnc023376;
-	Thu, 18 Sep 2014 17:53:29 +0300
+From 74cdf9aed7dca9e1a66fdab17b7c2a0c3472251d Mon Sep 17 00:00:00 2001
+Message-Id: <74cdf9aed7dca9e1a66fdab17b7c2a0c3472251d.1443021080.git.dledford@redhat.com>
+In-Reply-To: <252749ced9cacc991f116ebc99d4f5e4e15e55cc.1443021080.git.dledford@redhat.com>
+References: <252749ced9cacc991f116ebc99d4f5e4e15e55cc.1443021080.git.dledford@redhat.com>
 From: Matan Barak <matanb@mellanox.com>
-To: Roland Dreier <roland@kernel.org>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        linux-rdma@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-        Yishai Hadas <yishaih@mellanox.com>, dledford@redhat.com,
-        devesh.sharma@emulex.com
-Subject: [PATCH libibverbs V6 2/2] Use neighbour lookup for RoCE UD QPs Eth L2 resolution
 Date: Thu, 18 Sep 2014 17:53:11 +0300
-Message-Id: <1411051991-17456-3-git-send-email-matanb@mellanox.com>
-In-Reply-To: <1411051991-17456-1-git-send-email-matanb@mellanox.com>
-References: <1411051991-17456-1-git-send-email-matanb@mellanox.com>
-X-RedHat-Spam-Score: -1.107  (BAYES_00,RDNS_NONE,SPF_HELO_PASS,UNPARSEABLE_RELAY)
-X-Scanned-By: MIMEDefang 2.68 on 10.5.11.24
-X-Scanned-By: MIMEDefang 2.68 on 10.5.110.20
+Subject: [PATCH libibverbs 05/12] Use neighbour lookup for RoCE UD QPs Eth L2
+ resolution
+To: linux-rdma@vger.kernel.org
 
 In order to implement RoCE IP based addressing for UD QPs, without introducing
 uverbs changes, we need a way to resolve the L2 Ethernet addresses from user-space.
@@ -66,22 +41,23 @@ This solution depends on libnl-3 with backports to libnl-1.
 Change-Id: I5c36145f8eaa46ab3890cc06da00d04686d68a1e
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Doug Ledford <dledford@redhat.com>
 ---
- Makefile.am                |   24 +-
- configure.ac               |   31 ++
- include/infiniband/verbs.h |    5 +
- src/libibverbs.map         |    2 +
- src/neigh.c                |  853 ++++++++++++++++++++++++++++++++++++++++++++
- src/neigh.h                |   47 +++
- src/nl1_compat.h           |   73 ++++
- src/verbs.c                |  127 +++++++
+ Makefile.am                |  24 +-
+ configure.ac               |  31 ++
+ include/infiniband/verbs.h |   5 +
+ src/libibverbs.map         |   2 +
+ src/neigh.c                | 853 +++++++++++++++++++++++++++++++++++++++++++++
+ src/neigh.h                |  47 +++
+ src/nl1_compat.h           |  73 ++++
+ src/verbs.c                | 127 +++++++
  8 files changed, 1152 insertions(+), 10 deletions(-)
  create mode 100644 src/neigh.c
  create mode 100644 src/neigh.h
  create mode 100644 src/nl1_compat.h
 
 diff --git a/Makefile.am b/Makefile.am
-index 3a40f3e..3104d5a 100644
+index a6767de8ef86..ef4df033581d 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -5,13 +5,17 @@ lib_LTLIBRARIES = src/libibverbs.la
@@ -135,7 +111,7 @@ index 3a40f3e..3104d5a 100644
  libibverbsincludedir = $(includedir)/infiniband
  
 diff --git a/configure.ac b/configure.ac
-index b5f6dfc..bef0e35 100644
+index b5f6dfcf1ba1..bef0e355d156 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -28,6 +28,37 @@ else
@@ -177,10 +153,10 @@ index b5f6dfc..bef0e35 100644
  AC_CHECK_LIB(dl, dlsym, [],
      AC_MSG_ERROR([dlsym() not found.  libibverbs requires libdl.]))
 diff --git a/include/infiniband/verbs.h b/include/infiniband/verbs.h
-index 4eb68f1..d13b5e4 100644
+index 2d302a48cbf7..28e1586b0c96 100644
 --- a/include/infiniband/verbs.h
 +++ b/include/infiniband/verbs.h
-@@ -1539,6 +1539,11 @@ const char *ibv_port_state_str(enum ibv_port_state port_state);
+@@ -1544,6 +1544,11 @@ const char *ibv_port_state_str(enum ibv_port_state port_state);
   */
  const char *ibv_event_type_str(enum ibv_event_type event);
  
@@ -193,7 +169,7 @@ index 4eb68f1..d13b5e4 100644
  
  #  undef __attribute_const
 diff --git a/src/libibverbs.map b/src/libibverbs.map
-index 30212f3..9f0ec69 100644
+index 30212f335aa5..9f0ec69de183 100644
 --- a/src/libibverbs.map
 +++ b/src/libibverbs.map
 @@ -103,6 +103,8 @@ IBVERBS_1.1 {
@@ -207,7 +183,7 @@ index 30212f3..9f0ec69 100644
  		ibv_cmd_create_srq_ex;
 diff --git a/src/neigh.c b/src/neigh.c
 new file mode 100644
-index 0000000..da2a8d7
+index 000000000000..799b810a9ec4
 --- /dev/null
 +++ b/src/neigh.c
 @@ -0,0 +1,853 @@
@@ -1066,7 +1042,7 @@ index 0000000..da2a8d7
 +}
 diff --git a/src/neigh.h b/src/neigh.h
 new file mode 100644
-index 0000000..61dfd85
+index 000000000000..61dfd85264b7
 --- /dev/null
 +++ b/src/neigh.h
 @@ -0,0 +1,47 @@
@@ -1119,7 +1095,7 @@ index 0000000..61dfd85
 +#endif
 diff --git a/src/nl1_compat.h b/src/nl1_compat.h
 new file mode 100644
-index 0000000..809259d
+index 000000000000..809259dce561
 --- /dev/null
 +++ b/src/nl1_compat.h
 @@ -0,0 +1,73 @@
@@ -1197,7 +1173,7 @@ index 0000000..809259d
 +
 +#endif
 diff --git a/src/verbs.c b/src/verbs.c
-index a6aae70..dc4aa1c 100644
+index a6aae7010570..ada3515f1eee 100644
 --- a/src/verbs.c
 +++ b/src/verbs.c
 @@ -43,6 +43,11 @@
@@ -1339,5 +1315,5 @@ index a6aae70..dc4aa1c 100644
 +#endif
 +}
 -- 
-1.7.1
+2.4.3
 
