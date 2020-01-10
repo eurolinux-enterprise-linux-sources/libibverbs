@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([libibverbs],[1.2.1],[linux-rdma@vger.kernel.org])
+AC_INIT([libibverbs],[1.1.7],[linux-rdma@vger.kernel.org])
 AC_CONFIG_SRCDIR([src/ibverbs.h])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -27,37 +27,6 @@ else
         CPPFLAGS="$CPPFLAGS -I$with_valgrind/include"
     fi
 fi
-
-AC_ARG_WITH([resolve-neigh],
-    AC_HELP_STRING([--with-resolve-neigh],
-        [Enable neighbour resolution in Ethernet (default YES)]))
-have_libnl=no
-if  test x$with_resolve_neigh = x || test x$with_resolve_neigh = xyes; then
-	PKG_CHECK_MODULES([LIBNL],[libnl-3.0],[
-			   have_libnl=yes
-			   AC_DEFINE([HAVE_LIBNL3], [1], [Use libnl-3.0])
-			   AC_DEFINE([HAVE_LIBNL], [1],  [Use libnl])
-			   PKG_CHECK_MODULES([LIBNL_ROUTE3], [libnl-route-3.0])
-			   LIBNL_CFLAGS="$LIBNL_CFLAGS $LIBNL_ROUTE3_CFLAGS"
-			   LIBNL_LIBS="$LIBNL_LIBS $LIBNL_ROUTE3_LIBS"], [:]
-			  );
-	if test "$have_libnl" = no; then
-		PKG_CHECK_MODULES([LIBNL], [libnl-1], [have_libnl=yes
-				  AC_DEFINE([HAVE_LIBNL1], [1], [Use libnl-1])
-				  AC_DEFINE([HAVE_LIBNL], [1],  [Use libnl])
-				  AC_CHECK_LIB(nl, rtnl_link_vlan_get_id, [],
-					AC_MSG_ERROR([rtnl_link_vlan_get_id not found.  libibverbs requires libnl.]))
-				 ],[
-					AC_MSG_ERROR([libibverbs requires libnl.])
-				 ])
-	fi
-else
-    AC_DEFINE([NRESOLVE_NEIGH], 1, [Define to 1 to disable resovle neigh annotations.])
-fi
-AM_CONDITIONAL([HAVE_LIBNL], [test "$have_libnl" = "yes"])
-AC_SUBST([LIBNL_CFLAGS])
-AC_SUBST([LIBNL_LIBS])
-AM_CONDITIONAL(NO_RESOLVE_NEIGH, test x$with_resolve_neigh = xno)
 
 dnl Checks for libraries
 AC_CHECK_LIB(dl, dlsym, [],

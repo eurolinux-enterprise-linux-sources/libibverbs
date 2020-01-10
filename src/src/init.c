@@ -70,7 +70,6 @@ struct ibv_driver_name {
 struct ibv_driver {
 	const char	       *name;
 	ibv_driver_init_func	init_func;
-	verbs_driver_init_func	verbs_init_func;
 	struct ibv_driver      *next;
 };
 
@@ -154,8 +153,7 @@ static int find_sysfs_devs(void)
 	return ret;
 }
 
-static void register_driver(const char *name, ibv_driver_init_func init_func,
-			    verbs_driver_init_func verbs_init_func)
+void ibv_register_driver(const char *name, ibv_driver_init_func init_func)
 {
 	struct ibv_driver *driver;
 
@@ -165,29 +163,15 @@ static void register_driver(const char *name, ibv_driver_init_func init_func,
 		return;
 	}
 
-	driver->name            = name;
-	driver->init_func	= init_func;
-	driver->verbs_init_func = verbs_init_func;
-	driver->next            = NULL;
+	driver->name      = name;
+	driver->init_func = init_func;
+	driver->next      = NULL;
 
 	if (tail_driver)
 		tail_driver->next = driver;
 	else
 		head_driver = driver;
 	tail_driver = driver;
-}
-
-void ibv_register_driver(const char *name, ibv_driver_init_func init_func)
-{
-	register_driver(name, init_func, NULL);
-}
-
-/* New registration symbol with same functionality - used by providers to
-  * validate that library supports verbs extension.
-  */
-void verbs_register_driver(const char *name, verbs_driver_init_func init_func)
-{
-	register_driver(name, NULL, init_func);
 }
 
 static void load_driver(const char *name)
@@ -349,23 +333,12 @@ out:
 static struct ibv_device *try_driver(struct ibv_driver *driver,
 				     struct ibv_sysfs_dev *sysfs_dev)
 {
-	struct verbs_device *vdev;
 	struct ibv_device *dev;
 	char value[8];
 
-	if (driver->init_func) {
-		dev = driver->init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
-		if (!dev)
-			return NULL;
-	} else {
-		vdev = driver->verbs_init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
-		if (!vdev)
-			return NULL;
-
-		dev = &vdev->device;
-		dev->ops.alloc_context = NULL;
-		dev->ops.free_context = NULL;
-	}
+	dev = driver->init_func(sysfs_dev->sysfs_path, sysfs_dev->abi_ver);
+	if (!dev)
+		return NULL;
 
 	if (ibv_read_sysfs_file(sysfs_dev->ibdev_path, "node_type", value, sizeof value) < 0) {
 		fprintf(stderr, PFX "Warning: no node_type attr under %s.\n",
@@ -373,7 +346,7 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 			dev->node_type = IBV_NODE_UNKNOWN;
 	} else {
 		dev->node_type = strtol(value, NULL, 10);
-		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_USNIC_UDP)
+		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_RNIC)
 			dev->node_type = IBV_NODE_UNKNOWN;
 	}
 
@@ -385,12 +358,6 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
 		break;
 	case IBV_NODE_RNIC:
 		dev->transport_type = IBV_TRANSPORT_IWARP;
-		break;
-	case IBV_NODE_USNIC:
-		dev->transport_type = IBV_TRANSPORT_USNIC;
-		break;
-	case IBV_NODE_USNIC_UDP:
-		dev->transport_type = IBV_TRANSPORT_USNIC_UDP;
 		break;
 	default:
 		dev->transport_type = IBV_TRANSPORT_UNKNOWN;
@@ -561,7 +528,7 @@ out:
 		     next_dev = sysfs_dev ? sysfs_dev->next : NULL;
 	     sysfs_dev;
 	     sysfs_dev = next_dev, next_dev = sysfs_dev ? sysfs_dev->next : NULL) {
-		if (!sysfs_dev->have_driver && getenv("IBV_SHOW_WARNINGS")) {
+		if (!sysfs_dev->have_driver) {
 			fprintf(stderr, PFX "Warning: no userspace device-specific "
 				"driver found for %s\n", sysfs_dev->sysfs_path);
 			if (statically_linked)

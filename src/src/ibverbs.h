@@ -81,11 +81,6 @@ extern HIDDEN int abi_ver;
 
 HIDDEN int ibverbs_init(struct ibv_device ***list);
 
-struct verbs_ex_private {
-	struct ibv_cq_ex *(*create_cq_ex)(struct ibv_context *context,
-					  struct ibv_cq_init_attr_ex *init_attr);
-};
-
 #define IBV_INIT_CMD(cmd, size, opcode)					\
 	do {								\
 		if (abi_ver > 2)					\
@@ -106,34 +101,5 @@ struct verbs_ex_private {
 		(cmd)->out_words = (outsize) / 4;			\
 		(cmd)->response  = (uintptr_t) (out);			\
 	} while (0)
-
-#define IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out, resp_size,\
-		outsize)						   \
-	do {                                                               \
-		size_t c_size = cmd_size - sizeof(struct ex_hdr);	   \
-		if (abi_ver > 2)					   \
-			(cmd)->hdr.command = IB_USER_VERBS_CMD_##opcode;   \
-		else							   \
-			(cmd)->hdr.command =				   \
-				IB_USER_VERBS_CMD_##opcode##_V2;	   \
-		(cmd)->hdr.in_words  = ((c_size) / 8);                     \
-		(cmd)->hdr.out_words = ((resp_size) / 8);                  \
-		(cmd)->hdr.provider_in_words   = (((size) - (cmd_size))/8);\
-		(cmd)->hdr.provider_out_words  =			   \
-			     (((outsize) - (resp_size)) / 8);              \
-		(cmd)->hdr.response  = (uintptr_t) (out);                  \
-		(cmd)->hdr.reserved = 0;				   \
-	} while (0)
-
-#define IBV_INIT_CMD_RESP_EX_VCMD(cmd, cmd_size, size, opcode, out, outsize) \
-	IBV_INIT_CMD_RESP_EX_V(cmd, cmd_size, size, opcode, out,	     \
-			sizeof(*(out)), outsize)
-
-#define IBV_INIT_CMD_RESP_EX(cmd, size, opcode, out, outsize)		     \
-	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, out,    \
-			sizeof(*(out)), outsize)
-
-#define IBV_INIT_CMD_EX(cmd, size, opcode)				     \
-	IBV_INIT_CMD_RESP_EX_V(cmd, sizeof(*(cmd)), size, opcode, NULL, 0, 0)
 
 #endif /* IB_VERBS_H */

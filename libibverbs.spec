@@ -1,20 +1,35 @@
 Name: libibverbs
-Version: 1.2.1
-Release: 1%{?dist}
+Version: 1.1.7
+Release: 6%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
-Url: https://www.openfabrics.org/
-Source: https://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
-Patch1: 0001-Revert-Fail-compiles-if-no-platform-specific-memory-.patch
+Url: http://www.openfabrics.org/
+Source: http://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
+Patch0: libibverbs-1.1.7-arg-fixes.patch
+Patch1: 0001-Use-IBV_SEND_INLINE-in-example-pingpong-programs.patch
+Patch2: 0002-Infrastructure-to-support-verbs-extensions.patch
+Patch3: 0003-Introduce-XRC-domains-XRCDs.patch
+Patch4: 0004-Add-support-for-XRC-SRQs.patch
+Patch5: 0005-Add-support-for-XRC-QPs.patch
+Patch6: 0006-Add-ibv_open_qp-for-XRC-receive-QPs.patch
+Patch7: 0007-XRC-man-pages.patch
+Patch8: 0008-Add-XRC-sample-application.patch
+Patch9: 0009-Fix-XRC-sample-application-ibv_xsrq_pingpong-issues.patch
+Patch11: 0011-Add-support-for-usNIC-nodes-and-transports.patch
+Patch12: 0014-Add-ibv_port_cap_flags.patch
+Patch13: 0015-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
+Patch14: 0016-Add-ibv_query_port_ex-support.patch
+Patch15: 0012-Add-general-definitions-to-support-uverbs-extensions.patch
+Patch16: 0013-Add-receive-flow-steering-support.patch
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-%ifnarch ia64 %{sparc} s390 s390x
+%ifnarch ia64 %{sparc} %{arm} aarch64
 BuildRequires: valgrind-devel
 %endif
-BuildRequires: automake, autoconf, libnl3-devel, libtool
+BuildRequires: automake, libnl-devel, libtool
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
-Requires: rdma
+ExcludeArch: s390 s390x
 
 %description
 libibverbs is a library that allows userspace processes to use RDMA
@@ -49,15 +64,31 @@ Requires: %{name} = %{version}-%{release}
 Requires: libibverbs-driver.%{_arch}
 
 %description utils
-Useful libibverbs example programs such as ibv_devinfo, which
+Useful libibverbs1 example programs such as ibv_devinfo, which
 displays information about RDMA devices.
 
 %prep
 %setup -q
+%patch0 -p1 -b .fixes
 %patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
+%patch6 -p1
+%patch7 -p1
+%patch8 -p1
+%patch9 -p1
+%patch11 -p1
+%patch12 -p1
+%patch13 -p1
+%patch14 -p1
+%patch15 -p1
+%patch16 -p1
 
 %build
-%ifnarch ia64 %{sparc} s390 s390x
+autoreconf -i -f
+%ifnarch ia64 %{sparc} %{arm} aarch64
 %configure --with-valgrind
 %else
 %configure
@@ -83,8 +114,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %dir %{_sysconfdir}/libibverbs.d
 %{_libdir}/libibverbs*.so.*
-%license COPYING
-%doc AUTHORS ChangeLog README
+%doc AUTHORS COPYING ChangeLog README
 
 %files devel
 %defattr(-,root,root,-)
@@ -102,59 +132,6 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
-* Tue Jul 19 2016 Jarod Wilson <jarod@redhat.com> - 1.2.1-1
-- Update to upstream v1.2.1 release
-- Resovles: bz1258684
-
-* Tue May 24 2016 Jarod Wilson <jarod@redhat.com> - 1.2.0-2
-- Add manpage for ibv_xsrq_pingpong (rhbz#1074936)
-
-* Wed Apr 13 2016 Jarod Wilson <jarod@redhat.com> - 1.2.0-1
-- Update to upstream v1.2.0 release
-- Resolves: bz1298704
-
-* Wed Sep 30 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-8
-- Rebuild against libnl3 against now that UD RoCE bug is fixed
-- Related: bz1261028
-
-* Wed Sep 23 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-7
-- Add checksum offload support
-- Update the various patches to the ones from the official upstream git repo
-- Related: bz1195888
-
-* Fri Jun 05 2015 Doug Ledford <dledford@redhat.com> - 1.1.8-6
-- Add build on s390
-- Drop back to building against libnl instead of libnl3
-- Resolves: bz1182178, bz1177115
-
-* Tue Dec 23 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-5
-- Add a specific requires on the rdma package
-- Related: bz1164618
-
-* Fri Oct 17 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-4
-- Fix one of the coverity bugs in a different way (the original fix
-  caused a problem in libmlx4)
-- Related: bz1137044
-
-* Thu Oct 09 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-3
-- Additional coverity fix
-- Related: bz1137044
-
-* Thu Oct 09 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-2
-- Update RoCE IP addressing patches to latest version under review
-- Build against valgrind on ppc64le
-- Fix a coverity found issue
-- Resolves: bz1137044
-
-* Tue Jul 22 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-1
-- Grab official upstream release.  This includes all of the pre-release
-  items we had in the last release except for the IP based RoCE GID
-  addressing changes.  So we are still carrying patches for those two
-  items
-- Upstream fixed the copy-n-paste error that broke flow steering
-- Related: bz1094988
-- Resolves: bz947308
-
 * Fri Feb 28 2014 Doug Ledford <dledford@redhat.com> - 1.1.7-6
 - Add in support for flow steering and IP addressing of UD RoCE QPs
 - Resolves: bz1058537, bz1062281

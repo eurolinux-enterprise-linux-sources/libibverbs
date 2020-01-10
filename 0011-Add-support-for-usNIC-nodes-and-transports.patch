@@ -1,0 +1,115 @@
+From f57a9c67eabb9e7f19c624ac3c8c27b7be55796c Mon Sep 17 00:00:00 2001
+Message-Id: <f57a9c67eabb9e7f19c624ac3c8c27b7be55796c.1393638207.git.dledford@redhat.com>
+In-Reply-To: <2ac84039e78caf346c8c6e169c30d5ec11adb536.1393638207.git.dledford@redhat.com>
+References: <2ac84039e78caf346c8c6e169c30d5ec11adb536.1393638207.git.dledford@redhat.com>
+From: "Upinder Malhi \\(umalhi\\)" <umalhi@cisco.com>
+Date: Tue, 21 Jan 2014 19:18:41 -0800
+Subject: [Patch libibverbs 11/12] Add support for usNIC nodes and transports
+To: roland@kernel.org
+Cc: linux-rdma@vger.kernel.org
+
+Kernel commits 5db5765e255d ("IB/core: Add support for RDMA_NODE_USNIC_UDP")
+and 180771a3707a ("IB/core: Add Cisco usNIC rdma node and transport types")
+add IB_NODE_USNIC[_UDP] and IB_TRANSPORT_USNIC[_UDP].  Add the corresponding
+support in libibverbs.
+
+Signed-off-by: Upinder Malhi <umalhi@cisco.com>
+Signed-off-by: Roland Dreier <roland@purestorage.com>
+---
+ examples/devinfo.c         | 8 +++++---
+ include/infiniband/verbs.h | 8 ++++++--
+ src/enum_strs.c            | 6 ++++--
+ src/init.c                 | 8 +++++++-
+ 4 files changed, 22 insertions(+), 8 deletions(-)
+
+diff --git a/examples/devinfo.c b/examples/devinfo.c
+index ff078e4..afa8c85 100644
+--- a/examples/devinfo.c
++++ b/examples/devinfo.c
+@@ -70,9 +70,11 @@ static const char *guid_str(uint64_t node_guid, char *str)
+ static const char *transport_str(enum ibv_transport_type transport)
+ {
+ 	switch (transport) {
+-	case IBV_TRANSPORT_IB:    return "InfiniBand";
+-	case IBV_TRANSPORT_IWARP: return "iWARP";
+-	default:		  return "invalid transport";
++	case IBV_TRANSPORT_IB:		return "InfiniBand";
++	case IBV_TRANSPORT_IWARP:	return "iWARP";
++	case IBV_TRANSPORT_USNIC:	return "usNIC";
++	case IBV_TRANSPORT_USNIC_UDP:	return "usNIC UDP";
++	default:			return "invalid transport";
+ 	}
+ }
+ 
+diff --git a/include/infiniband/verbs.h b/include/infiniband/verbs.h
+index 5064636..3696495 100644
+--- a/include/infiniband/verbs.h
++++ b/include/infiniband/verbs.h
+@@ -86,13 +86,17 @@ enum ibv_node_type {
+ 	IBV_NODE_CA 		= 1,
+ 	IBV_NODE_SWITCH,
+ 	IBV_NODE_ROUTER,
+-	IBV_NODE_RNIC
++	IBV_NODE_RNIC,
++	IBV_NODE_USNIC,
++	IBV_NODE_USNIC_UDP,
+ };
+ 
+ enum ibv_transport_type {
+ 	IBV_TRANSPORT_UNKNOWN	= -1,
+ 	IBV_TRANSPORT_IB	= 0,
+-	IBV_TRANSPORT_IWARP
++	IBV_TRANSPORT_IWARP,
++	IBV_TRANSPORT_USNIC,
++	IBV_TRANSPORT_USNIC_UDP,
+ };
+ 
+ enum ibv_device_cap_flags {
+diff --git a/src/enum_strs.c b/src/enum_strs.c
+index 54d71a6..93ffe32 100644
+--- a/src/enum_strs.c
++++ b/src/enum_strs.c
+@@ -38,10 +38,12 @@ const char *ibv_node_type_str(enum ibv_node_type node_type)
+ 		[IBV_NODE_CA]		= "InfiniBand channel adapter",
+ 		[IBV_NODE_SWITCH]	= "InfiniBand switch",
+ 		[IBV_NODE_ROUTER]	= "InfiniBand router",
+-		[IBV_NODE_RNIC]		= "iWARP NIC"
++		[IBV_NODE_RNIC]		= "iWARP NIC",
++		[IBV_NODE_USNIC]	= "usNIC",
++		[IBV_NODE_USNIC_UDP]	= "usNIC UDP",
+ 	};
+ 
+-	if (node_type < IBV_NODE_CA || node_type > IBV_NODE_RNIC)
++	if (node_type < IBV_NODE_CA || node_type > IBV_NODE_USNIC_UDP)
+ 		return "unknown";
+ 
+ 	return node_type_str[node_type];
+diff --git a/src/init.c b/src/init.c
+index 9fcb1ee..d0e4b1c 100644
+--- a/src/init.c
++++ b/src/init.c
+@@ -373,7 +373,7 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
+ 			dev->node_type = IBV_NODE_UNKNOWN;
+ 	} else {
+ 		dev->node_type = strtol(value, NULL, 10);
+-		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_RNIC)
++		if (dev->node_type < IBV_NODE_CA || dev->node_type > IBV_NODE_USNIC_UDP)
+ 			dev->node_type = IBV_NODE_UNKNOWN;
+ 	}
+ 
+@@ -386,6 +386,12 @@ static struct ibv_device *try_driver(struct ibv_driver *driver,
+ 	case IBV_NODE_RNIC:
+ 		dev->transport_type = IBV_TRANSPORT_IWARP;
+ 		break;
++	case IBV_NODE_USNIC:
++		dev->transport_type = IBV_TRANSPORT_USNIC;
++		break;
++	case IBV_NODE_USNIC_UDP:
++		dev->transport_type = IBV_TRANSPORT_USNIC_UDP;
++		break;
+ 	default:
+ 		dev->transport_type = IBV_TRANSPORT_UNKNOWN;
+ 		break;
+-- 
+1.8.1.4
+

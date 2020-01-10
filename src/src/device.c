@@ -122,45 +122,11 @@ uint64_t __ibv_get_device_guid(struct ibv_device *device)
 }
 default_symver(__ibv_get_device_guid, ibv_get_device_guid);
 
-struct ibv_cq_ex *__lib_ibv_create_cq_ex(struct ibv_context *context,
-					 struct ibv_cq_init_attr_ex *cq_attr)
-{
-	struct verbs_context *vctx = verbs_get_ctx(context);
-	struct ibv_cq_ex *cq;
-
-	if (cq_attr->wc_flags & ~IBV_CREATE_CQ_SUP_WC_FLAGS) {
-		errno = EOPNOTSUPP;
-		return NULL;
-	}
-
-	pthread_mutex_lock(&context->mutex);
-
-	cq = vctx->priv->create_cq_ex(context, cq_attr);
-
-	if (cq) {
-		cq->context		   = context;
-		cq->channel		   = cq_attr->channel;
-		if (cq->channel)
-			++cq->channel->refcnt;
-		cq->cq_context		   = cq_attr->cq_context;
-		cq->comp_events_completed  = 0;
-		cq->async_events_completed = 0;
-		pthread_mutex_init(&cq->mutex, NULL);
-		pthread_cond_init(&cq->cond, NULL);
-	}
-
-	pthread_mutex_unlock(&context->mutex);
-
-	return cq;
-}
-
 struct ibv_context *__ibv_open_device(struct ibv_device *device)
 {
-	struct verbs_device *verbs_device = verbs_get_device(device);
 	char *devpath;
-	int cmd_fd, ret;
+	int cmd_fd;
 	struct ibv_context *context;
-	struct verbs_context *context_ex;
 
 	if (asprintf(&devpath, "/dev/infiniband/%s", device->dev_name) < 0)
 		return NULL;
@@ -175,56 +141,9 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 	if (cmd_fd < 0)
 		return NULL;
 
-	if (!verbs_device) {
-		context = device->ops.alloc_context(device, cmd_fd);
-		if (!context)
-			goto err;
-	} else {
-		struct verbs_ex_private *priv;
-
-		/* Library now allocates the context */
-		context_ex = calloc(1, sizeof(*context_ex) +
-				       verbs_device->size_of_context);
-		if (!context_ex) {
-			errno = ENOMEM;
-			goto err;
-		}
-
-		priv = calloc(1, sizeof(*priv));
-		if (!priv) {
-			errno = ENOMEM;
-			free(context_ex);
-			goto err;
-		}
-
-		context_ex->priv = priv;
-		context_ex->context.abi_compat  = __VERBS_ABI_IS_EXTENDED;
-		context_ex->sz = sizeof(*context_ex);
-
-		context = &context_ex->context;
-		ret = verbs_device->init_context(verbs_device, context, cmd_fd);
-		if (ret)
-			goto verbs_err;
-		/*
-		 * In order to maintain backward/forward binary compatibility
-		 * with apps compiled against libibverbs-1.1.8 that use the
-		 * flow steering addition, we need to set the two
-		 * ABI_placeholder entries to match the driver set flow
-		 * entries.  This is because apps compiled against
-		 * libibverbs-1.1.8 use an inline ibv_create_flow and
-		 * ibv_destroy_flow function that looks in the placeholder
-		 * spots for the proper entry points.  For apps compiled
-		 * against libibverbs-1.1.9 and later, the inline functions
-		 * will be looking in the right place.
-		 */
-		context_ex->ABI_placeholder1 = (void (*)(void)) context_ex->ibv_create_flow;
-		context_ex->ABI_placeholder2 = (void (*)(void)) context_ex->ibv_destroy_flow;
-
-		if (context_ex->create_cq_ex) {
-			priv->create_cq_ex = context_ex->create_cq_ex;
-			context_ex->create_cq_ex = __lib_ibv_create_cq_ex;
-		}
-	}
+	context = device->ops.alloc_context(device, cmd_fd);
+	if (!context)
+		goto err;
 
 	context->device = device;
 	context->cmd_fd = cmd_fd;
@@ -232,11 +151,9 @@ struct ibv_context *__ibv_open_device(struct ibv_device *device)
 
 	return context;
 
-verbs_err:
-	free(context_ex->priv);
-	free(context_ex);
 err:
 	close(cmd_fd);
+
 	return NULL;
 }
 default_symver(__ibv_open_device, ibv_open_device);
@@ -246,17 +163,14 @@ int __ibv_close_device(struct ibv_context *context)
 	int async_fd = context->async_fd;
 	int cmd_fd   = context->cmd_fd;
 	int cq_fd    = -1;
-	struct verbs_context *context_ex;
 
-	context_ex = verbs_get_ctx(context);
-	if (context_ex) {
-		struct verbs_device *verbs_device = verbs_get_device(context->device);
-		verbs_device->uninit_context(verbs_device, context);
-		free(context_ex->priv);
-		free(context_ex);
-	} else {
-		context->device->ops.free_context(context);
+	if (abi_ver <= 2) {
+		struct ibv_abi_compat_v2 *t = context->abi_compat;
+		cq_fd = t->channel.fd;
+		free(context->abi_compat);
 	}
+
+	context->device->ops.free_context(context);
 
 	close(async_fd);
 	close(cmd_fd);
