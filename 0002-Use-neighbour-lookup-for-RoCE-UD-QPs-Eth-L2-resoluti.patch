@@ -1,6 +1,7 @@
+From 85e574e2029ba1c61c94ff5bf466375f74b8db9c Mon Sep 17 00:00:00 2001
 From: Matan Barak <matanb@mellanox.com>
 Date: Thu, 16 Jan 2014 18:11:57 +0200
-Subject: [PATCH libibverbs V2 2/3] Use neighbour lookup for RoCE UD QPs Eth L2 resolution
+Subject: [PATCH libibverbs V5 2/2] Use neighbour lookup for RoCE UD QPs Eth L2 resolution
 
 In order to implement RoCE IP based addressing for UD QPs, without introducing
 uverbs changes, we need a way to resolve the L2 Ethernet addresses from user-space.
@@ -8,9 +9,9 @@ uverbs changes, we need a way to resolve the L2 Ethernet addresses from user-spa
 This is done with netlink through libnl, and in libibverbs such that multiple
 vendor provider libraries can use the code.
 
-The Ethernet L2 params are passed to the provider driver using an extension
-verb drv_ibv_create_ah_ex call. This resolution is done only for providers
-that support this extension verb, otherwise, there's not real reason to do that.
+This is implemented as a helper function ibv_resolve_eth_l2_from_gid.
+If the GID is IP based, the provider shall call this utility function,
+which resolves the IP to MAC and vlan.
 
 The steps for resolution:
 
@@ -32,21 +33,23 @@ The steps for resolution:
 
 This solution depends on libnl-3 with backports to libnl-1.
 
+
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
  Makefile.am                |   24 +-
  configure.ac               |   31 ++
- include/infiniband/verbs.h |   35 ++-
+ include/infiniband/verbs.h |    3 +
+ src/libibverbs.map         |    2 +
  src/neigh.c                | 1003 ++++++++++++++++++++++++++++++++++++++++++++
  src/neigh.h                |   53 +++
- src/verbs.c                |  161 +++++++-
- 6 files changed, 1294 insertions(+), 13 deletions(-)
+ src/verbs.c                |  143 +++++++
+ 7 files changed, 1249 insertions(+), 10 deletions(-)
  create mode 100644 src/neigh.c
  create mode 100644 src/neigh.h
 
 diff --git a/Makefile.am b/Makefile.am
-index a6767de..ef4df03 100644
+index 3a40f3e..3104d5a 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -5,13 +5,17 @@ lib_LTLIBRARIES = src/libibverbs.la
@@ -100,7 +103,7 @@ index a6767de..ef4df03 100644
  libibverbsincludedir = $(includedir)/infiniband
  
 diff --git a/configure.ac b/configure.ac
-index b8d4cea..025f8c8 100644
+index b5f6dfc..bef0e35 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -28,6 +28,37 @@ else
@@ -142,65 +145,35 @@ index b8d4cea..025f8c8 100644
  AC_CHECK_LIB(dl, dlsym, [],
      AC_MSG_ERROR([dlsym() not found.  libibverbs requires libdl.]))
 diff --git a/include/infiniband/verbs.h b/include/infiniband/verbs.h
-index a79a1de..63c4756 100644
+index 4eb68f1..ebcfc03 100644
 --- a/include/infiniband/verbs.h
 +++ b/include/infiniband/verbs.h
-@@ -458,6 +458,36 @@ struct ibv_ah_attr {
- 	uint8_t			port_num;
- };
+@@ -1539,6 +1539,9 @@ const char *ibv_port_state_str(enum ibv_port_state port_state);
+  */
+ const char *ibv_event_type_str(enum ibv_event_type event);
  
-+enum ibv_ah_attr_ex_attr_mask {
-+	IBV_AH_ATTR_EX_LL = 1UL << 0,
-+	IBV_AH_ATTR_EX_VID = 1UL << 1,
-+};
-+
-+enum ll_address_type {
-+	LL_ADDRESS_UNKNOWN,
-+	LL_ADDRESS_IB,
-+	LL_ADDRESS_ETH,
-+	LL_ADDRESS_SIZE
-+};
-+
-+struct ibv_ah_attr_ex {
-+	struct ibv_global_route	grh;
-+	uint16_t		dlid;
-+	uint8_t			sl;
-+	uint8_t			src_path_bits;
-+	uint8_t			static_rate;
-+	uint8_t			is_global;
-+	uint8_t			port_num;
-+	uint32_t		comp_mask;
-+	struct {
-+		enum ll_address_type type;
-+		uint32_t	len;
-+		char		*address;
-+	} ll_address;
-+	uint16_t		vid;
-+};
-+
-+
- enum ibv_srq_attr_mask {
- 	IBV_SRQ_MAX_WR	= 1 << 0,
- 	IBV_SRQ_LIMIT	= 1 << 1
-@@ -864,11 +894,14 @@ enum verbs_context_mask {
- 	VERBS_CONTEXT_XRCD	= 1 << 0,
- 	VERBS_CONTEXT_SRQ	= 1 << 1,
- 	VERBS_CONTEXT_QP	= 1 << 2,
--	VERBS_CONTEXT_RESERVED	= 1 << 3
-+	VERBS_CONTEXT_CREATE_AH = 1 << 3,
-+	VERBS_CONTEXT_RESERVED  = 1 << 4
- };
++#define ETHERNET_LL_SIZE 6
++int ibv_resolve_eth_l2_from_gid(struct ibv_context *context, struct ibv_ah_attr *attr,
++				uint8_t eth_mac[ETHERNET_LL_SIZE], uint16_t *vid);
+ END_C_DECLS
  
- struct verbs_context {
- 	/*  "grows up" - new fields go here */
-+	struct ibv_ah * (*drv_ibv_create_ah_ex)(struct ibv_pd *pd,
-+						struct ibv_ah_attr_ex *attr);
- 	struct ibv_qp *(*open_qp)(struct ibv_context *context,
- 			struct ibv_qp_open_attr *attr);
- 	struct ibv_qp *(*create_qp_ex)(struct ibv_context *context,
+ #  undef __attribute_const
+diff --git a/src/libibverbs.map b/src/libibverbs.map
+index 30212f3..9f0ec69 100644
+--- a/src/libibverbs.map
++++ b/src/libibverbs.map
+@@ -103,6 +103,8 @@ IBVERBS_1.1 {
+ 		ibv_rate_to_mbps;
+ 		mbps_to_ibv_rate;
+ 
++		ibv_resolve_eth_l2_from_gid;
++
+ 		ibv_cmd_open_xrcd;
+ 		ibv_cmd_close_xrcd;
+ 		ibv_cmd_create_srq_ex;
 diff --git a/src/neigh.c b/src/neigh.c
 new file mode 100644
-index 0000000..301aba9
+index 0000000..afa2281
 --- /dev/null
 +++ b/src/neigh.c
 @@ -0,0 +1,1003 @@
@@ -462,7 +435,7 @@ index 0000000..301aba9
 +		return err;
 +
 +	sock_fd = socket(addr_dst->sktaddr.s.sa_family,
-+			SOCK_DGRAM | SOCK_CLOEXEC, 0);
++			 SOCK_DGRAM | SOCK_CLOEXEC, 0);
 +	if (sock_fd == -1)
 +		return errno ? -errno : -1;
 +	err = bind(sock_fd, &addr_src.sktaddr.s, addr_src.len);
@@ -567,8 +540,8 @@ index 0000000..301aba9
 +
 +	do {
 +		err = sendto(sock_fd, buff, sizeof(buff), 0,
-+				 &addr_dst.sktaddr.s,
-+				 addr_dst.len);
++			     &addr_dst.sktaddr.s,
++			     addr_dst.len);
 +		if (err > 0)
 +			err = 0;
 +	} while (-1 == err && EADDRNOTAVAIL == errno && --max_count);
@@ -1267,23 +1240,26 @@ index 0000000..09e01e1
 +
 +#endif
 diff --git a/src/verbs.c b/src/verbs.c
-index a6aae70..e7343a9 100644
+index a6aae70..22bb996 100644
 --- a/src/verbs.c
 +++ b/src/verbs.c
-@@ -43,6 +43,9 @@
+@@ -43,6 +43,11 @@
  #include <string.h>
  
  #include "ibverbs.h"
 +#ifndef NRESOLVE_NEIGH
++#include <net/if.h>
++#include <net/if_arp.h>
 +#include "neigh.h"
 +#endif
  
  int ibv_rate_to_mult(enum ibv_rate rate)
  {
-@@ -505,15 +508,169 @@ int __ibv_destroy_qp(struct ibv_qp *qp)
+@@ -591,3 +596,141 @@ int __ibv_detach_mcast(struct ibv_qp *qp, const union ibv_gid *gid, uint16_t lid
+ 	return qp->context->ops.detach_mcast(qp, gid, lid);
  }
- default_symver(__ibv_destroy_qp, ibv_destroy_qp);
- 
+ default_symver(__ibv_detach_mcast, ibv_detach_mcast);
++
 +static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 +{
 +	return ((a->s6_addr32[0] | a->s6_addr32[1]) |
@@ -1319,61 +1295,36 @@ index a6aae70..e7343a9 100644
 +	return 0;
 +}
 +
-+#define ETHERNET_LL_SIZE 6
 +#define NEIGH_GET_DEFAULT_TIMEOUT_MS 3000
- struct ibv_ah *__ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr)
- {
--	struct ibv_ah *ah = pd->context->ops.create_ah(pd, attr);
-+	int err;
-+	struct ibv_ah *ah = NULL;
++int ibv_resolve_eth_l2_from_gid(struct ibv_context *context,
++				struct ibv_ah_attr *attr,
++				uint8_t eth_mac[ETHERNET_LL_SIZE], uint16_t *vid)
++{
 +#ifndef NRESOLVE_NEIGH
-+	struct ibv_port_attr port_attr;
 +	int dst_family;
 +	int src_family;
 +	int oif;
 +	struct get_neigh_handler neigh_handler;
 +	union ibv_gid sgid;
-+	struct ibv_ah_attr_ex attr_ex;
-+	char ethernet_ll[ETHERNET_LL_SIZE];
-+	struct verbs_context *vctx = verbs_get_ctx_op(pd->context,
-+						      drv_ibv_create_ah_ex);
++	int ether_len;
 +	struct peer_address src;
 +	struct peer_address dst;
++	uint16_t ret_vid;
++	int ret = -EINVAL;
++	int err;
 +
-+	if (!vctx) {
-+#endif
-+		ah = pd->context->ops.create_ah(pd, attr);
-+#ifndef NRESOLVE_NEIGH
-+		goto return_ah;
-+	}
-+
-+	err = ibv_query_port(pd->context, attr->port_num, &port_attr);
-+
-+	if (err) {
-+		fprintf(stderr, PFX "ibv_create_ah failed to query port.\n");
-+		return NULL;
-+	}
-+
-+	if (IBV_LINK_LAYER_ETHERNET != port_attr.link_layer ||
-+	    !(port_attr.port_cap_flags & IBV_PORT_IP_BASED_GIDS)) {
-+		ah = pd->context->ops.create_ah(pd, attr);
-+		goto return_ah;
-+	}
-+
-+	memcpy(&attr_ex, attr, sizeof(*attr));
-+	memset((void *)&attr_ex + sizeof(*attr), 0,
-+	       sizeof(attr_ex) - sizeof(*attr));
-+
-+	err = ibv_query_gid(pd->context, attr->port_num,
++	err = ibv_query_gid(context, attr->port_num,
 +			    attr->grh.sgid_index, &sgid);
 +
 +	if (err) {
 +		fprintf(stderr, PFX "ibv_create_ah failed to query sgid.\n");
-+		return NULL;
++		return err;
 +	}
 +
-+	if (neigh_init_resources(&neigh_handler, NEIGH_GET_DEFAULT_TIMEOUT_MS))
-+		return NULL;
++	err = neigh_init_resources(&neigh_handler, NEIGH_GET_DEFAULT_TIMEOUT_MS);
++
++	if (err)
++		return err;
 +
 +	dst_family = ipv6_addr_v4mapped((struct in6_addr *)attr->grh.dgid.raw) ?
 +			AF_INET : AF_INET6;
@@ -1413,45 +1364,39 @@ index a6aae70..e7343a9 100644
 +		goto free_resources;
 +	}
 +
++	ret = -EHOSTUNREACH;
++
 +	/* blocking call */
 +	if (process_get_neigh(&neigh_handler)) {
 +		fprintf(stderr, PFX "Neigh resolution process failed\n");
 +		goto free_resources;
 +	}
 +
-+	attr_ex.vid = neigh_get_vlan_id_from_dev(&neigh_handler);
++	ret_vid = neigh_get_vlan_id_from_dev(&neigh_handler);
 +
-+	if (attr_ex.vid <= 0xfff) {
-+		neigh_set_vlan_id(&neigh_handler, attr_ex.vid);
-+		attr_ex.comp_mask |= IBV_AH_ATTR_EX_VID;
-+	}
++	if (ret_vid <= 0xfff)
++		neigh_set_vlan_id(&neigh_handler, ret_vid);
++
 +	/* We are using only Ethernet here */
-+	attr_ex.ll_address.len = neigh_get_ll(&neigh_handler, ethernet_ll,
-+					      sizeof(ethernet_ll));
- 
-+	if (attr_ex.ll_address.len <= 0)
++	ether_len = neigh_get_ll(&neigh_handler,
++				 eth_mac,
++				 sizeof(eth_mac));
++
++	if (ether_len <= 0)
 +		goto free_resources;
 +
-+	attr_ex.comp_mask |= IBV_AH_ATTR_EX_LL;
-+	attr_ex.ll_address.type = LL_ADDRESS_ETH;
-+	attr_ex.ll_address.address = ethernet_ll;
++	*vid = ret_vid;
 +
-+
-+	ah = vctx->drv_ibv_create_ah_ex(pd, &attr_ex);
++	ret = 0;
 +
 +free_resources:
 +	neigh_free_resources(&neigh_handler);
 +
-+return_ah:
++	return ret;
++#else
++	return -ENOIMPL;
 +#endif
- 	if (ah) {
- 		ah->context = pd->context;
- 		ah->pd      = pd;
- 	}
--
- 	return ah;
- }
- default_symver(__ibv_create_ah, ibv_create_ah);
++}
 -- 
 1.7.1
 

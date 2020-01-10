@@ -1,32 +1,19 @@
 Name: libibverbs
-Version: 1.1.7
-Release: 6%{?dist}
+Version: 1.1.8
+Release: 1%{?dist}
 Summary: A library for direct userspace use of RDMA (InfiniBand/iWARP) hardware
 Group: System Environment/Libraries
 License: GPLv2 or BSD
-Url: http://www.openfabrics.org/
-Source: http://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
+Url: https://www.openfabrics.org/
+Source: https://www.openfabrics.org/downloads/verbs/libibverbs-%{version}.tar.gz
 Patch0: libibverbs-1.1.7-arg-fixes.patch
-Patch1: 0001-Use-IBV_SEND_INLINE-in-example-pingpong-programs.patch
-Patch2: 0002-Infrastructure-to-support-verbs-extensions.patch
-Patch3: 0003-Introduce-XRC-domains-XRCDs.patch
-Patch4: 0004-Add-support-for-XRC-SRQs.patch
-Patch5: 0005-Add-support-for-XRC-QPs.patch
-Patch6: 0006-Add-ibv_open_qp-for-XRC-receive-QPs.patch
-Patch7: 0007-XRC-man-pages.patch
-Patch8: 0008-Add-XRC-sample-application.patch
-Patch9: 0009-Fix-XRC-sample-application-ibv_xsrq_pingpong-issues.patch
-Patch11: 0011-Add-support-for-usNIC-nodes-and-transports.patch
-Patch12: 0014-Add-ibv_port_cap_flags.patch
-Patch13: 0015-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
-Patch14: 0016-Add-ibv_query_port_ex-support.patch
-Patch15: 0012-Add-general-definitions-to-support-uverbs-extensions.patch
-Patch16: 0013-Add-receive-flow-steering-support.patch
+Patch1: 0001-Add-ibv_port_cap_flags.patch
+Patch2: 0002-Use-neighbour-lookup-for-RoCE-UD-QPs-Eth-L2-resoluti.patch
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-%ifnarch ia64 %{sparc} %{arm} aarch64
+%ifnarch ia64 %{sparc} ppc64le
 BuildRequires: valgrind-devel
 %endif
-BuildRequires: automake, libnl-devel, libtool
+BuildRequires: automake, autoconf, libnl3-devel, libtool
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 ExcludeArch: s390 s390x
@@ -72,23 +59,10 @@ displays information about RDMA devices.
 %patch0 -p1 -b .fixes
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
-%patch8 -p1
-%patch9 -p1
-%patch11 -p1
-%patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
 
 %build
-autoreconf -i -f
-%ifnarch ia64 %{sparc} %{arm} aarch64
+autoreconf -i
+%ifnarch ia64 %{sparc} ppc64le
 %configure --with-valgrind
 %else
 %configure
@@ -132,6 +106,14 @@ rm -rf %{buildroot}
 %{_mandir}/man1/*
 
 %changelog
+* Tue Jul 22 2014 Doug Ledford <dledford@redhat.com> - 1.1.8-1
+- Grab official upstream release.  This includes all of the pre-release
+  items we had in the last release except for the IP based RoCE GID
+  addressing changes.  So we are still carrying patches for those two
+  items
+- Upstream fixed the copy-n-paste error that broke flow steering
+- Related: bz1122333
+
 * Fri Feb 28 2014 Doug Ledford <dledford@redhat.com> - 1.1.7-6
 - Add in support for flow steering and IP addressing of UD RoCE QPs
 - Resolves: bz1058537, bz1062281

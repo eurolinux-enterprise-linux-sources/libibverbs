@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
- * Copyright (c) 2004 Intel Corporation.  All rights reserved.
+ * Copyright (c) 2004, 2011-2012 Intel Corporation.  All rights reserved.
  * Copyright (c) 2005, 2006, 2007 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2005 PathScale, Inc.  All rights reserved.
  *
@@ -38,6 +38,8 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include <stddef.h>
+#include <errno.h>
 
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
@@ -63,18 +65,38 @@ union ibv_gid {
 	} global;
 };
 
+#ifndef container_of
+/**
+  * container_of - cast a member of a structure out to the containing structure
+  * @ptr:        the pointer to the member.
+  * @type:       the type of the container struct this is embedded in.
+  * @member:     the name of the member within the struct.
+  *
+ */
+#define container_of(ptr, type, member) \
+	((type *) ((uint8_t *)(ptr) - offsetof(type, member)))
+#endif
+
+#define vext_field_avail(type, fld, sz) (offsetof(type, fld) < (sz))
+
+static void *__VERBS_ABI_IS_EXTENDED = ((uint8_t *) NULL) - 1;
+
 enum ibv_node_type {
 	IBV_NODE_UNKNOWN	= -1,
 	IBV_NODE_CA 		= 1,
 	IBV_NODE_SWITCH,
 	IBV_NODE_ROUTER,
-	IBV_NODE_RNIC
+	IBV_NODE_RNIC,
+	IBV_NODE_USNIC,
+	IBV_NODE_USNIC_UDP,
 };
 
 enum ibv_transport_type {
 	IBV_TRANSPORT_UNKNOWN	= -1,
 	IBV_TRANSPORT_IB	= 0,
-	IBV_TRANSPORT_IWARP
+	IBV_TRANSPORT_IWARP,
+	IBV_TRANSPORT_USNIC,
+	IBV_TRANSPORT_USNIC_UDP,
 };
 
 enum ibv_device_cap_flags {
@@ -92,7 +114,9 @@ enum ibv_device_cap_flags {
 	IBV_DEVICE_SYS_IMAGE_GUID	= 1 << 11,
 	IBV_DEVICE_RC_RNR_NAK_GEN	= 1 << 12,
 	IBV_DEVICE_SRQ_RESIZE		= 1 << 13,
-	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14
+	IBV_DEVICE_N_NOTIFY_CQ		= 1 << 14,
+	IBV_DEVICE_XRC			= 1 << 20,
+	IBV_DEVICE_MANAGED_FLOW_STEERING = 1 << 29
 };
 
 enum ibv_atomic_cap {
@@ -298,6 +322,22 @@ struct ibv_pd {
 	uint32_t		handle;
 };
 
+enum ibv_xrcd_init_attr_mask {
+	IBV_XRCD_INIT_ATTR_FD	    = 1 << 0,
+	IBV_XRCD_INIT_ATTR_OFLAGS   = 1 << 1,
+	IBV_XRCD_INIT_ATTR_RESERVED = 1 << 2
+};
+
+struct ibv_xrcd_init_attr {
+	uint32_t comp_mask;
+	int	 fd;
+	int	 oflags;
+};
+
+struct ibv_xrcd {
+	struct ibv_context     *context;
+};
+
 enum ibv_rereg_mr_flags {
 	IBV_REREG_MR_CHANGE_TRANSLATION	= (1 << 0),
 	IBV_REREG_MR_CHANGE_PD		= (1 << 1),
@@ -417,11 +457,37 @@ struct ibv_srq_init_attr {
 	struct ibv_srq_attr	attr;
 };
 
+enum ibv_srq_type {
+	IBV_SRQT_BASIC,
+	IBV_SRQT_XRC
+};
+
+enum ibv_srq_init_attr_mask {
+	IBV_SRQ_INIT_ATTR_TYPE		= 1 << 0,
+	IBV_SRQ_INIT_ATTR_PD		= 1 << 1,
+	IBV_SRQ_INIT_ATTR_XRCD		= 1 << 2,
+	IBV_SRQ_INIT_ATTR_CQ		= 1 << 3,
+	IBV_SRQ_INIT_ATTR_RESERVED	= 1 << 4
+};
+
+struct ibv_srq_init_attr_ex {
+	void		       *srq_context;
+	struct ibv_srq_attr	attr;
+
+	uint32_t		comp_mask;
+	enum ibv_srq_type	srq_type;
+	struct ibv_pd	       *pd;
+	struct ibv_xrcd	       *xrcd;
+	struct ibv_cq	       *cq;
+};
+
 enum ibv_qp_type {
 	IBV_QPT_RC = 2,
 	IBV_QPT_UC,
 	IBV_QPT_UD,
-	IBV_QPT_RAW_PACKET = 8
+	IBV_QPT_RAW_PACKET = 8,
+	IBV_QPT_XRC_SEND = 9,
+	IBV_QPT_XRC_RECV
 };
 
 struct ibv_qp_cap {
@@ -440,6 +506,42 @@ struct ibv_qp_init_attr {
 	struct ibv_qp_cap	cap;
 	enum ibv_qp_type	qp_type;
 	int			sq_sig_all;
+};
+
+enum ibv_qp_init_attr_mask {
+	IBV_QP_INIT_ATTR_PD		= 1 << 0,
+	IBV_QP_INIT_ATTR_XRCD		= 1 << 1,
+	IBV_QP_INIT_ATTR_RESERVED	= 1 << 2
+};
+
+struct ibv_qp_init_attr_ex {
+	void		       *qp_context;
+	struct ibv_cq	       *send_cq;
+	struct ibv_cq	       *recv_cq;
+	struct ibv_srq	       *srq;
+	struct ibv_qp_cap	cap;
+	enum ibv_qp_type	qp_type;
+	int			sq_sig_all;
+
+	uint32_t		comp_mask;
+	struct ibv_pd	       *pd;
+	struct ibv_xrcd	       *xrcd;
+};
+
+enum ibv_qp_open_attr_mask {
+	IBV_QP_OPEN_ATTR_NUM		= 1 << 0,
+	IBV_QP_OPEN_ATTR_XRCD	        = 1 << 1,
+	IBV_QP_OPEN_ATTR_CONTEXT	= 1 << 2,
+	IBV_QP_OPEN_ATTR_TYPE		= 1 << 3,
+	IBV_QP_OPEN_ATTR_RESERVED	= 1 << 4
+};
+
+struct ibv_qp_open_attr {
+	uint32_t		comp_mask;
+	uint32_t		qp_num;
+	struct ibv_xrcd        *xrcd;
+	void		       *qp_context;
+	enum ibv_qp_type	qp_type;
 };
 
 enum ibv_qp_attr_mask {
@@ -473,7 +575,8 @@ enum ibv_qp_state {
 	IBV_QPS_RTS,
 	IBV_QPS_SQD,
 	IBV_QPS_SQE,
-	IBV_QPS_ERR
+	IBV_QPS_ERR,
+	IBV_QPS_UNKNOWN
 };
 
 enum ibv_mig_state {
@@ -558,6 +661,11 @@ struct ibv_send_wr {
 			uint32_t	remote_qkey;
 		} ud;
 	} wr;
+	union {
+		struct {
+			uint32_t    remote_srqn;
+		} xrc;
+	} qp_type;
 };
 
 struct ibv_recv_wr {
@@ -629,6 +737,103 @@ struct ibv_ah {
 	uint32_t		handle;
 };
 
+enum ibv_flow_flags {
+	IBV_FLOW_ATTR_FLAGS_ALLOW_LOOP_BACK = 1,
+};
+
+enum ibv_flow_attr_type {
+	/* steering according to rule specifications */
+	IBV_FLOW_ATTR_NORMAL		= 0x0,
+	/* default unicast and multicast rule -
+	 * receive all Eth traffic which isn't steered to any QP
+	 */
+	IBV_FLOW_ATTR_ALL_DEFAULT	= 0x1,
+	/* default multicast rule -
+	 * receive all Eth multicast traffic which isn't steered to any QP
+	 */
+	IBV_FLOW_ATTR_MC_DEFAULT	= 0x2,
+};
+
+enum ibv_flow_spec_type {
+	IBV_FLOW_SPEC_ETH	= 0x20,
+	IBV_FLOW_SPEC_IPV4	= 0x30,
+	IBV_FLOW_SPEC_TCP	= 0x40,
+	IBV_FLOW_SPEC_UDP	= 0x41,
+};
+
+struct ibv_flow_eth_filter {
+	uint8_t		dst_mac[6];
+	uint8_t		src_mac[6];
+	uint16_t	ether_type;
+	/*
+	 * same layout as 802.1q: prio 3, cfi 1, vlan id 12
+	 */
+	uint16_t	vlan_tag;
+};
+
+struct ibv_flow_spec_eth {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_eth_filter val;
+	struct ibv_flow_eth_filter mask;
+};
+
+struct ibv_flow_ipv4_filter {
+	uint32_t src_ip;
+	uint32_t dst_ip;
+};
+
+struct ibv_flow_spec_ipv4 {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_ipv4_filter val;
+	struct ibv_flow_ipv4_filter mask;
+};
+
+struct ibv_flow_tcp_udp_filter {
+	uint16_t dst_port;
+	uint16_t src_port;
+};
+
+struct ibv_flow_spec_tcp_udp {
+	enum ibv_flow_spec_type  type;
+	uint16_t  size;
+	struct ibv_flow_tcp_udp_filter val;
+	struct ibv_flow_tcp_udp_filter mask;
+};
+
+struct ibv_flow_spec {
+	union {
+		struct {
+			enum ibv_flow_spec_type	type;
+			uint16_t		size;
+		} hdr;
+		struct ibv_flow_spec_eth eth;
+		struct ibv_flow_spec_ipv4 ipv4;
+		struct ibv_flow_spec_tcp_udp tcp_udp;
+	};
+};
+
+struct ibv_flow_attr {
+	uint32_t comp_mask;
+	enum ibv_flow_attr_type type;
+	uint16_t size;
+	uint16_t priority;
+	uint8_t num_of_specs;
+	uint8_t port;
+	uint32_t flags;
+	/* Following are the optional layers according to user request
+	 * struct ibv_flow_spec_xxx [L2]
+	 * struct ibv_flow_spec_yyy [L3/L4]
+	 */
+};
+
+struct ibv_flow {
+	uint32_t	   comp_mask;
+	struct ibv_context *context;
+	uint32_t	   handle;
+};
+
 struct ibv_device;
 struct ibv_context;
 
@@ -654,6 +859,17 @@ struct ibv_device {
 	char			dev_path[IBV_SYSFS_PATH_MAX];
 	/* Path to infiniband class device in sysfs */
 	char			ibdev_path[IBV_SYSFS_PATH_MAX];
+};
+
+struct verbs_device {
+	struct ibv_device device; /* Must be first */
+	size_t	sz;
+	size_t	size_of_context;
+	int	(*init_context)(struct verbs_device *device,
+				struct ibv_context *ctx, int cmd_fd);
+	void	(*uninit_context)(struct verbs_device *device,
+				struct ibv_context *ctx);
+	/* future fields added here */
 };
 
 struct ibv_context_ops {
@@ -723,6 +939,63 @@ struct ibv_context {
 	pthread_mutex_t		mutex;
 	void		       *abi_compat;
 };
+
+enum verbs_context_mask {
+	VERBS_CONTEXT_XRCD	= 1 << 0,
+	VERBS_CONTEXT_SRQ	= 1 << 1,
+	VERBS_CONTEXT_QP	= 1 << 2,
+	VERBS_CONTEXT_CREATE_FLOW = 1 << 3,
+	VERBS_CONTEXT_DESTROY_FLOW = 1 << 4,
+	VERBS_CONTEXT_RESERVED	= 1 << 5
+};
+
+struct verbs_context {
+	/*  "grows up" - new fields go here */
+	int (*drv_ibv_destroy_flow) (struct ibv_flow *flow);
+	int (*lib_ibv_destroy_flow) (struct ibv_flow *flow);
+	struct ibv_flow * (*drv_ibv_create_flow) (struct ibv_qp *qp,
+						  struct ibv_flow_attr
+						  *flow_attr);
+	struct ibv_flow * (*lib_ibv_create_flow) (struct ibv_qp *qp,
+						  struct ibv_flow_attr
+						  *flow_attr);
+	struct ibv_qp *(*open_qp)(struct ibv_context *context,
+			struct ibv_qp_open_attr *attr);
+	struct ibv_qp *(*create_qp_ex)(struct ibv_context *context,
+			struct ibv_qp_init_attr_ex *qp_init_attr_ex);
+	int (*get_srq_num)(struct ibv_srq *srq, uint32_t *srq_num);
+	struct ibv_srq *	(*create_srq_ex)(struct ibv_context *context,
+						 struct ibv_srq_init_attr_ex *srq_init_attr_ex);
+	struct ibv_xrcd *	(*open_xrcd)(struct ibv_context *context,
+					     struct ibv_xrcd_init_attr *xrcd_init_attr);
+	int			(*close_xrcd)(struct ibv_xrcd *xrcd);
+	uint64_t has_comp_mask;
+	size_t   sz;			/* Must be immediately before struct ibv_context */
+	struct ibv_context context;	/* Must be last field in the struct */
+};
+
+static inline struct verbs_context *verbs_get_ctx(struct ibv_context *ctx)
+{
+	return (ctx->abi_compat != __VERBS_ABI_IS_EXTENDED) ?
+		NULL : container_of(ctx, struct verbs_context, context);
+}
+
+#define verbs_get_ctx_op(ctx, op) ({ \
+	struct verbs_context *vctx = verbs_get_ctx(ctx); \
+	(!vctx || (vctx->sz < sizeof(*vctx) - offsetof(struct verbs_context, op)) || \
+	 !vctx->op) ? NULL : vctx; })
+
+#define verbs_set_ctx_op(_vctx, op, ptr) ({ \
+	struct verbs_context *vctx = _vctx; \
+	if (vctx && (vctx->sz >= sizeof(*vctx) - offsetof(struct verbs_context, op))) \
+		vctx->op = ptr; })
+
+static inline struct verbs_device *verbs_get_device(
+					const struct ibv_device *dev)
+{
+	return (dev->ops.alloc_context) ?
+		NULL : container_of(dev, struct verbs_device, device);
+}
 
 /**
  * ibv_get_device_list - Get list of IB devices currently available
@@ -802,7 +1075,7 @@ static inline int ___ibv_query_port(struct ibv_context *context,
 				    uint8_t port_num,
 				    struct ibv_port_attr *port_attr)
 {
-	/* For compatability when running with old libibverbs */
+	/* For compatibility when running with old libibverbs */
 	port_attr->link_layer = IBV_LINK_LAYER_UNSPECIFIED;
 	port_attr->reserved   = 0;
 
@@ -833,6 +1106,49 @@ struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
  * ibv_dealloc_pd - Free a protection domain
  */
 int ibv_dealloc_pd(struct ibv_pd *pd);
+
+static inline struct ibv_flow *ibv_create_flow(struct ibv_qp *qp,
+					       struct ibv_flow_attr *flow)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(qp->context,
+						      lib_ibv_create_flow);
+	if (!vctx || !vctx->lib_ibv_create_flow)
+		return NULL;
+
+	return vctx->lib_ibv_create_flow(qp, flow);
+}
+
+static inline int ibv_destroy_flow(struct ibv_flow *flow_id)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(flow_id->context,
+						      lib_ibv_destroy_flow);
+	if (!vctx || !vctx->lib_ibv_destroy_flow)
+		return -ENOSYS;
+	return vctx->lib_ibv_destroy_flow(flow_id);
+}
+
+/**
+ * ibv_open_xrcd - Open an extended connection domain
+ */
+static inline struct ibv_xrcd *
+ibv_open_xrcd(struct ibv_context *context, struct ibv_xrcd_init_attr *xrcd_init_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, open_xrcd);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->open_xrcd(context, xrcd_init_attr);
+}
+
+/**
+ * ibv_close_xrcd - Close an extended connection domain
+ */
+static inline int ibv_close_xrcd(struct ibv_xrcd *xrcd)
+{
+	struct verbs_context *vctx = verbs_get_ctx(xrcd->context);
+	return vctx->close_xrcd(xrcd);
+}
 
 /**
  * ibv_reg_mr - Register a memory region
@@ -957,6 +1273,28 @@ static inline int ibv_req_notify_cq(struct ibv_cq *cq, int solicited_only)
 struct ibv_srq *ibv_create_srq(struct ibv_pd *pd,
 			       struct ibv_srq_init_attr *srq_init_attr);
 
+static inline struct ibv_srq *
+ibv_create_srq_ex(struct ibv_context *context,
+		  struct ibv_srq_init_attr_ex *srq_init_attr_ex)
+{
+	struct verbs_context *vctx;
+	uint32_t mask = srq_init_attr_ex->comp_mask;
+
+	if (!(mask & ~(IBV_SRQ_INIT_ATTR_PD | IBV_SRQ_INIT_ATTR_TYPE)) &&
+	    (mask & IBV_SRQ_INIT_ATTR_PD) &&
+	    (!(mask & IBV_SRQ_INIT_ATTR_TYPE) ||
+	     (srq_init_attr_ex->srq_type == IBV_SRQT_BASIC)))
+		return ibv_create_srq(srq_init_attr_ex->pd,
+				      (struct ibv_srq_init_attr *)srq_init_attr_ex);
+
+	vctx = verbs_get_ctx_op(context, create_srq_ex);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->create_srq_ex(context, srq_init_attr_ex);
+}
+
 /**
  * ibv_modify_srq - Modifies the attributes for the specified SRQ.
  * @srq: The SRQ to modify.
@@ -980,6 +1318,16 @@ int ibv_modify_srq(struct ibv_srq *srq,
  * @srq_attr: The attributes of the specified SRQ.
  */
 int ibv_query_srq(struct ibv_srq *srq, struct ibv_srq_attr *srq_attr);
+
+static inline int ibv_get_srq_num(struct ibv_srq *srq, uint32_t *srq_num)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(srq->context, get_srq_num);
+
+	if (!vctx)
+		return ENOSYS;
+
+	return vctx->get_srq_num(srq, srq_num);
+}
 
 /**
  * ibv_destroy_srq - Destroys the specified SRQ.
@@ -1006,6 +1354,38 @@ static inline int ibv_post_srq_recv(struct ibv_srq *srq,
  */
 struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
 			     struct ibv_qp_init_attr *qp_init_attr);
+
+static inline struct ibv_qp *
+ibv_create_qp_ex(struct ibv_context *context, struct ibv_qp_init_attr_ex *qp_init_attr_ex)
+{
+	struct verbs_context *vctx;
+	uint32_t mask = qp_init_attr_ex->comp_mask;
+
+	if (mask == IBV_QP_INIT_ATTR_PD)
+		return ibv_create_qp(qp_init_attr_ex->pd,
+				     (struct ibv_qp_init_attr *)qp_init_attr_ex);
+
+	vctx = verbs_get_ctx_op(context, create_qp_ex);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->create_qp_ex(context, qp_init_attr_ex);
+}
+
+/**
+ * ibv_open_qp - Open a shareable queue pair.
+ */
+static inline struct ibv_qp *
+ibv_open_qp(struct ibv_context *context, struct ibv_qp_open_attr *qp_open_attr)
+{
+	struct verbs_context *vctx = verbs_get_ctx_op(context, open_qp);
+	if (!vctx) {
+		errno = ENOSYS;
+		return NULL;
+	}
+	return vctx->open_qp(context, qp_open_attr);
+}
 
 /**
  * ibv_modify_qp - Modify a queue pair.

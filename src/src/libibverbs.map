@@ -64,6 +64,8 @@ IBVERBS_1.0 {
 		ibv_cmd_destroy_ah;
 		ibv_cmd_attach_mcast;
 		ibv_cmd_detach_mcast;
+		ibv_cmd_create_flow;
+		ibv_cmd_destroy_flow;
 		ibv_copy_qp_attr_from_kern;
 		ibv_copy_path_rec_from_kern;
 		ibv_copy_path_rec_to_kern;
@@ -91,6 +93,7 @@ IBVERBS_1.1 {
 		ibv_dontfork_range;
 		ibv_dofork_range;
 		ibv_register_driver;
+		verbs_register_driver;
 
 		ibv_node_type_str;
 		ibv_port_state_str;
@@ -99,4 +102,11 @@ IBVERBS_1.1 {
 
 		ibv_rate_to_mbps;
 		mbps_to_ibv_rate;
+
+		ibv_cmd_open_xrcd;
+		ibv_cmd_close_xrcd;
+		ibv_cmd_create_srq_ex;
+		ibv_cmd_create_qp_ex;
+		ibv_cmd_open_qp;
+
 } IBVERBS_1.0;
